@@ -1,0 +1,240 @@
+@keyframes skeletonPulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeletonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Base skeleton styles */
+.skeletonLine,
+.skeletonBadge,
+.skeletonButton,
+.skeletonCell,
+.skeletonTitle,
+.skeletonMeta,
+.skeletonSection,
+.skeletonCircle {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: skeletonShimmer 1.5s infinite linear;
+  border-radius: 4px;
+}
+
+/* Card skeleton */
+.skeletonCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #f0f0f0;
+}
+
+.skeletonHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.skeletonLine {
+  height: 16px;
+  width: 60%;
+  margin-bottom: 8px;
+}
+
+.skeletonLineShort {
+  height: 14px;
+  width: 40%;
+}
+
+.skeletonBadge {
+  height: 24px;
+  width: 80px;
+  border-radius: 12px;
+}
+
+.skeletonContent {
+  margin-bottom: 16px;
+}
+
+.skeletonFooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.skeletonButton {
+  height: 36px;
+  width: 100px;
+  border-radius: 8px;
+}
+
+/* Table skeleton */
+.skeletonTable {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.skeletonRow {
+  display: flex;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 16px;
+}
+
+.skeletonRow:last-child {
+  border-bottom: none;
+}
+
+.skeletonCell {
+  height: 16px;
+  flex: 1;
+  border-radius: 4px;
+}
+
+.skeletonCell:nth-child(1) {
+  width: 40px;
+}
+
+.skeletonCell:nth-child(2) {
+  width: 120px;
+}
+
+.skeletonCell:nth-child(3) {
+  width: 150px;
+}
+
+.skeletonCell:nth-child(4) {
+  width: 100px;
+}
+
+/* Detail skeleton */
+.skeletonDetail {
+  max-width: 1200px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 2px 12px rgba(250,43,77,0.08);
+}
+
+.skeletonHeader {
+  margin-bottom: 32px;
+}
+
+.skeletonTitle {
+  height: 40px;
+  width: 300px;
+  margin-bottom: 12px;
+}
+
+.skeletonMeta {
+  height: 20px;
+  width: 200px;
+}
+
+.skeletonContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.skeletonSection {
+  height: 120px;
+  width: 100%;
+  border-radius: 12px;
+}
+
+/* Workflow skeleton */
+.skeletonWorkflow {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+}
+
+.skeletonStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.skeletonCircle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeletonStepContent {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.skeletonStepContent .skeletonLine {
+  margin-bottom: 12px;
+}
+
+.skeletonStepContent .skeletonLine:last-child {
+  width: 80%;
+  margin-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .skeletonCard {
+    padding: 16px;
+  }
+
+  .skeletonDetail {
+    margin: 16px;
+    padding: 20px;
+  }
+
+  .skeletonWorkflow {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .skeletonStep {
+    gap: 12px;
+  }
+
+  .skeletonCircle {
+    width: 50px;
+    height: 50px;
+  }
+
+  .skeletonStepContent {
+    padding: 16px;
+  }
+
+  .skeletonRow {
+    padding: 12px;
+    gap: 12px;
+  }
+}

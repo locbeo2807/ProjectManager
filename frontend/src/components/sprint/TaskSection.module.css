@@ -1,0 +1,413 @@
+.taskSection {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Header */
+.taskHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e8eaf6;
+  background: #f8f9ff;
+}
+
+.taskHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.taskTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.taskStats {
+  display: flex;
+  gap: 16px;
+}
+
+.statItem {
+  font-size: 13px;
+  color: #718096;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.taskHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filterSelect,
+.sortSelect {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filterSelect:hover,
+.sortSelect:hover {
+  border-color: #cbd5e0;
+}
+
+.filterSelect:focus,
+.sortSelect:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.createTaskBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.createTaskBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Task Grid */
+.taskGrid {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.taskCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.taskCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e0;
+}
+
+.taskCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.taskInfo {
+  flex: 1;
+}
+
+.taskName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+}
+
+.taskId {
+  font-size: 12px;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.taskBadges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.statusBadge,
+.priorityBadge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Task Details */
+.taskDetails {
+  margin-bottom: 16px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f7fafc;
+}
+
+.detailRow:last-child {
+  border-bottom: none;
+}
+
+.detailLabel {
+  font-size: 13px;
+  color: #718096;
+  font-weight: 500;
+}
+
+.detailValue {
+  font-size: 13px;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+/* Task Footer */
+.taskFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f7fafc;
+}
+
+.editTaskBtn {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  color: #4a5568;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.editTaskBtn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+  color: #2d3748;
+}
+
+.deleteTaskBtn {
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  color: #c53030;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deleteTaskBtn:hover {
+  background: #fed7d7;
+  border-color: #fc8181;
+  color: #9b2c2c;
+}
+
+/* Confirmation Dialog */
+.confirmDialogOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirmDialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.confirmDialogTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+}
+
+.confirmDialogMessage {
+  font-size: 14px;
+  color: #4a5568;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.confirmDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirmDialogCancel {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  color: #4a5568;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirmDialogCancel:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.confirmDialogConfirm {
+  background: #e53e3e;
+  border: 1px solid #e53e3e;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirmDialogConfirm:hover {
+  background: #c53030;
+  border-color: #c53030;
+}
+
+/* Empty State */
+.emptyState {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.emptyText {
+  font-size: 16px;
+  color: #718096;
+  margin-bottom: 20px;
+}
+
+.createFirstTaskBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.createFirstTaskBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .taskHeader {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .taskHeaderLeft {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .taskHeaderRight {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .filterSelect,
+  .sortSelect,
+  .createTaskBtn {
+    width: 100%;
+  }
+  
+  .taskGrid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 16px;
+  }
+  
+  .taskCard {
+    padding: 16px;
+  }
+  
+  .taskCardHeader {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .taskBadges {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .taskHeader {
+    padding: 16px;
+  }
+  
+  .taskGrid {
+    padding: 12px;
+  }
+  
+  .taskCard {
+    padding: 12px;
+  }
+  
+  .taskName {
+    font-size: 15px;
+  }
+  
+  .detailRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}

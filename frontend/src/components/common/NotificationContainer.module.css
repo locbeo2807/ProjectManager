@@ -1,0 +1,510 @@
+/* Notification Container Styles */
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.notification-bell {
+  position: relative;
+}
+
+.bell-icon {
+  position: relative;
+  cursor: pointer;
+  font-size: 24px;
+  padding: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  color: white;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.bell-icon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 10px;
+  width: 380px;
+  max-height: 480px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.notification-bell:hover .notification-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.notification-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mark-read-btn,
+.clear-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mark-read-btn:hover,
+.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.notification-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.no-notifications {
+  text-align: center;
+  padding: 40px 20px;
+  color: #718096;
+}
+
+.no-notifications-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.no-notifications p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: #f8f9fa;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-content {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notification-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2d3748;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notification-message {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.notification-time {
+  font-size: 11px;
+  color: #a0aec0;
+}
+
+.remove-notification {
+  background: none;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+  margin-left: 8px;
+}
+
+.remove-notification:hover {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+/* Toast Notification Styles */
+.custom-toast {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.notification-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px;
+}
+
+.notification-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notification-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notification-message {
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+/* Toast Type Specific Styles */
+.toast-success {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+}
+
+.toast-error {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+  color: white !important;
+}
+
+.toast-warning {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;
+  color: white !important;
+}
+
+.toast-info {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+  color: white !important;
+}
+
+.toast-task {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%) !important;
+  color: white !important;
+}
+
+.toast-handover {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%) !important;
+  color: #333 !important;
+}
+
+.toast-sla {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%) !important;
+  color: #333 !important;
+}
+
+.toast-budget {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%) !important;
+  color: #333 !important;
+}
+
+.toast-milestone {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%) !important;
+  color: #333 !important;
+}
+
+/* Progress Bar Styles */
+.Toastify__progress-bar {
+  height: 3px !important;
+  border-radius: 2px !important;
+}
+
+.toast-success .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.toast-error .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.toast-warning .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.toast-info .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Close Button Styles */
+.Toastify__close-button {
+  color: rgba(255, 255, 255, 0.8) !important;
+  opacity: 0.8 !important;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .notification-container {
+    top: 10px;
+    right: 10px;
+  }
+  
+  .notification-dropdown {
+    width: 320px;
+    max-height: 400px;
+  }
+  
+  .notification-header {
+    padding: 12px 16px;
+  }
+  
+  .notification-header h3 {
+    font-size: 14px;
+  }
+  
+  .notification-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .mark-read-btn,
+  .clear-btn {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+  
+  .notification-item {
+    padding: 12px 16px;
+  }
+  
+  .notification-title {
+    font-size: 13px;
+  }
+  
+  .notification-message {
+    font-size: 12px;
+  }
+  
+  .notification-time {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .notification-dropdown {
+    width: 280px;
+    right: -10px;
+  }
+  
+  .notification-header {
+    padding: 10px 12px;
+  }
+  
+  .notification-item {
+    padding: 10px 12px;
+  }
+  
+  .notification-content {
+    gap: 8px;
+  }
+  
+  .notification-icon {
+    font-size: 18px;
+  }
+  
+  .notification-title {
+    font-size: 12px;
+  }
+  
+  .notification-message {
+    font-size: 11px;
+  }
+  
+  .notification-time {
+    font-size: 9px;
+  }
+}
+
+/* Animation Classes */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40%, 43% {
+    transform: translateY(-10px);
+  }
+  70% {
+    transform: translateY(-5px);
+  }
+  90% {
+    transform: translateY(-2px);
+  }
+}
+
+.notification-badge {
+  animation: bounce 2s infinite;
+}
+
+/* Focus States */
+.bell-icon:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .notification-dropdown {
+    background: #2d3748;
+    color: white;
+  }
+  
+  .notification-item {
+    border-bottom-color: #4a5568;
+  }
+  
+  .notification-item:hover {
+    background: #374151;
+  }
+  
+  .notification-title {
+    color: white;
+  }
+  
+  .notification-message {
+    color: #e2e8f0;
+  }
+  
+  .notification-time {
+    color: #a0aec0;
+  }
+  
+  .remove-notification:hover {
+    background: #742a2a;
+    color: #fc8181;
+  }
+  
+  .notification-list::-webkit-scrollbar-track {
+    background: #4a5568;
+  }
+  
+  .notification-list::-webkit-scrollbar-thumb {
+    background: #718096;
+  }
+  
+  .notification-list::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+}

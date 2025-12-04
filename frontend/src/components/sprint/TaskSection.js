@@ -1,0 +1,249 @@
+import React, { useState } from 'react';
+import EditTaskPopup from '../popups/EditTaskPopup';
+import TaskService from '../../services/taskService';
+import styles from './TaskSection.module.css';
+
+const statusColors = {
+  'Hàng đợi': { background: '#f1f3f5', color: '#6c757d' },
+  'Chưa làm': { background: '#e3f2fd', color: '#1976d2' },
+  'Đang làm': { background: '#fff3cd', color: '#b8860b' },
+  'Đang xem xét': { background: '#f8d7da', color: '#dc3545' },
+  'Kiểm thử QA': { background: '#d1ecf1', color: '#0c5460' },
+  'Sẵn sàng phát hành': { background: '#d4edda', color: '#155724' },
+  'Hoàn thành': { background: '#e6f4ea', color: '#28a745' },
+};
+
+const priorityColors = {
+  'Low': { background: '#f1f3f5', color: '#6c757d' },
+  'Medium': { background: '#fff3cd', color: '#b8860b' },
+  'High': { background: '#f8d7da', color: '#dc3545' },
+};
+
+const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
+  const [showEditTask, setShowEditTask] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('status');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState(null);
+
+  const filteredTasks = tasks.filter(task => {
+    if (filterStatus === 'all') return true;
+    return task.status === filterStatus;
+  });
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    if (sortBy === 'status') return a.status.localeCompare(b.status);
+    if (sortBy === 'priority') {
+      const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+    }
+    if (sortBy === 'storyPoints') return (b.storyPoints || 0) - (a.storyPoints || 0);
+    return 0;
+  });
+
+  const handleEditTask = (task) => {
+    setSelectedTask(task);
+    setShowEditTask(true);
+  };
+
+  const handleTaskUpdate = (updatedTask) => {
+    const newTasks = tasks.map(task => 
+      task._id === updatedTask._id ? updatedTask : task
+    );
+    onTasksChange(newTasks);
+    setShowEditTask(false);
+    setSelectedTask(null);
+  };
+
+  const handleDeleteTask = (task) => {
+    setTaskToDelete(task);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    
+    try {
+      await TaskService.deleteTask(taskToDelete._id);
+      const newTasks = tasks.filter(task => task._id !== taskToDelete._id);
+      onTasksChange(newTasks);
+      setShowDeleteConfirm(false);
+      setTaskToDelete(null);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Xóa task thất bại: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setTaskToDelete(null);
+  };
+
+  const uniqueStatuses = [...new Set(tasks.map(task => task.status))];
+
+  return (
+    <div className={styles.taskSection}>
+      {/* Header */}
+      <div className={styles.taskHeader}>
+        <div className={styles.taskHeaderLeft}>
+          <h3 className={styles.taskTitle}>Tasks ({tasks.length})</h3>
+          <div className={styles.taskStats}>
+            <span className={styles.statItem}>
+              Hoàn thành: {tasks.filter(t => t.status === 'Hoàn thành').length}
+            </span>
+            <span className={styles.statItem}>
+              Đang làm: {tasks.filter(t => t.status === 'Đang làm').length}
+            </span>
+          </div>
+        </div>
+        
+        <div className={styles.taskHeaderRight}>
+          <select
+            className={styles.filterSelect}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            {uniqueStatuses.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          
+          <select
+            className={styles.sortSelect}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="status">Sắp xếp theo trạng thái</option>
+            <option value="priority">Sắp xếp theo ưu tiên</option>
+            <option value="storyPoints">Sắp xếp theo story points</option>
+          </select>
+          
+          <button className={styles.createTaskBtn} onClick={onTaskCreate}>
+            + Tạo Task
+          </button>
+        </div>
+      </div>
+
+      {/* Task Grid */}
+      <div className={styles.taskGrid}>
+        {sortedTasks.length > 0 ? (
+          sortedTasks.map(task => (
+            <div key={task._id} className={styles.taskCard}>
+              <div className={styles.taskCardHeader}>
+                <div className={styles.taskInfo}>
+                  <h4 className={styles.taskName}>{task.name}</h4>
+                  <span className={styles.taskId}>#{task.taskId}</span>
+                </div>
+                <div className={styles.taskBadges}>
+                  <span
+                    className={styles.statusBadge}
+                    style={statusColors[task.status]}
+                  >
+                    {task.status}
+                  </span>
+                  <span
+                    className={styles.priorityBadge}
+                    style={priorityColors[task.priority]}
+                  >
+                    {task.priority}
+                  </span>
+                </div>
+              </div>
+              
+              <div className={styles.taskDetails}>
+                <div className={styles.detailRow}>
+                  <span className={styles.detailLabel}>Loại:</span>
+                  <span className={styles.detailValue}>{task.taskType}</span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span className={styles.detailLabel}>Assignee:</span>
+                  <span className={styles.detailValue}>
+                    {task.assignee?.name || 'Chưa gán'}
+                  </span>
+                </div>
+                <div className={styles.detailRow}>
+                  <span className={styles.detailLabel}>Story Points:</span>
+                  <span className={styles.detailValue}>{task.storyPoints || 0}</span>
+                </div>
+                {task.estimatedHours && (
+                  <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Thời gian ước tính:</span>
+                    <span className={styles.detailValue}>{task.estimatedHours}h</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className={styles.taskFooter}>
+                <button
+                  className={styles.editTaskBtn}
+                  onClick={() => handleEditTask(task)}
+                >
+                  Chỉnh sửa
+                </button>
+                <button
+                  className={styles.deleteTaskBtn}
+                  onClick={() => handleDeleteTask(task)}
+                >
+                  Xóa
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>📋</div>
+            <p className={styles.emptyText}>Chưa có task nào trong sprint này</p>
+            <button className={styles.createFirstTaskBtn} onClick={onTaskCreate}>
+              + Tạo Task đầu tiên
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Edit Task Popup */}
+      {showEditTask && selectedTask && (
+        <EditTaskPopup
+          open={showEditTask}
+          onClose={() => {
+            setShowEditTask(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          onUpdate={handleTaskUpdate}
+          sprint={sprint}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && taskToDelete && (
+        <div className={styles.confirmDialogOverlay}>
+          <div className={styles.confirmDialog}>
+            <h3 className={styles.confirmDialogTitle}>Xác nhận xóa task</h3>
+            <p className={styles.confirmDialogMessage}>
+              Bạn có chắc chắn muốn xóa task "{taskToDelete.name}"? Hành động này không thể hoàn tác.
+            </p>
+            <div className={styles.confirmDialogActions}>
+              <button
+                className={styles.confirmDialogCancel}
+                onClick={cancelDelete}
+              >
+                Hủy
+              </button>
+              <button
+                className={styles.confirmDialogConfirm}
+                onClick={confirmDeleteTask}
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TaskSection;

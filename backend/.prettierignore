@@ -1,0 +1,19 @@
+# Ignore artifacts:
+node_modules
+package-lock.json
+npm-debug.log
+logs
+
+# Ignore env files
+.env*
+.env.example
+.env.test
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore build output
+dist
+build
+coverage

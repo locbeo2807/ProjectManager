@@ -1,0 +1,196 @@
+.taskWorkflowContainer {
+    display: flex;
+    height: 100%;
+    background-color: #f9fafb;
+    overflow: hidden;
+  }
+  
+  .mainContent {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    height: 100%;
+  }
+  
+  .sidebar {
+    width: 320px;
+    border-left: 1px solid #e5e7eb;
+    padding: 24px;
+    overflow-y: auto;
+    height: 100%;
+    background-color: #ffffff;
+  }
+  
+  .header {
+    margin-bottom: 24px;
+  }
+  
+  .taskName {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+  }
+  
+  .section {
+    margin-bottom: 32px;
+  }
+  
+  .sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 8px;
+  }
+  
+  .descriptionBox {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 1rem;
+    color: #374151;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  .sidebarPanel {
+    margin-bottom: 24px;
+  }
+  
+  .panelTitle {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+  
+  .statusBadge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  
+  .userPill {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: #f3f4f6;
+    border-radius: 8px;
+  }
+  
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+  }
+  
+  .userName {
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  .userRole {
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+  
+  .dateInfo {
+    font-size: 0.875rem;
+    color: #374151;
+  }
+  
+  .actionButton {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    background-color: #2563eb;
+    color: white;
+  }
+  
+  .actionButton:hover {
+    background-color: #1d4ed8;
+  }
+  
+  .actionButton:active {
+    transform: scale(0.98);
+  }
+  
+  .fileUploadSection {
+    margin-top: 16px;
+  }
+  
+  .fileInput {
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  
+  .fileInput:hover {
+    border-color: #2563eb;
+  }
+  
+  .fileList {
+    margin-top: 12px;
+    list-style: none;
+    padding: 0;
+  }
+  
+  .fileItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    background-color: #f9fafb;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }
+  
+  .commentSection {
+    margin-top: 32px;
+  }
+  
+  .commentInput {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+  
+  .commentButton {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background-color: #3b82f6;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .activityList {
+    margin-top: 16px;
+  }
+  
+  .activityItem {
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  

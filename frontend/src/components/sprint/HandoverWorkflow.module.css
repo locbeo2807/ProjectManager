@@ -1,0 +1,413 @@
+.handoverContainer {
+  padding: 24px;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Header Section */
+.handoverHeader {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+}
+
+.headerIcon {
+  font-size: 32px;
+  margin-right: 12px;
+}
+
+/* Statistics Grid */
+.statsGrid {
+  margin-bottom: 32px;
+}
+
+.statCard {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.statAvatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.statAvatarPending {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: white;
+}
+
+.statAvatarSuccess {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+}
+
+.statAvatarInfo {
+  background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+  color: white;
+}
+
+/* Timeline Section */
+.timelineSection {
+  background: white;
+  padding: 24px;
+  margin-bottom: 32px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.sectionIcon {
+  font-size: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.handoverTimeline {
+  margin-top: 16px;
+}
+
+.timelineItem {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Tasks Grid */
+.tasksGrid {
+  margin-bottom: 24px;
+}
+
+.taskCard {
+  height: 100%;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.taskCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: #cbd5e0;
+}
+
+.taskCardContent {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Task Header */
+.taskHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.taskName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  line-height: 1.3;
+  margin: 0;
+  flex: 1;
+  margin-right: 8px;
+}
+
+/* Task Status */
+.taskStatus {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+/* Assignment Info */
+.assignmentInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.assignmentRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assignmentIcon {
+  font-size: 16px;
+  color: #718096;
+}
+
+/* Progress Section */
+.progressSection {
+  margin-bottom: 16px;
+}
+
+.progressBar {
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+}
+
+.progressBar .MuiLinearProgress-bar {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+}
+
+/* Handover Button */
+.handoverButton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  align-self: flex-start;
+}
+
+.handoverButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Dialog Styles */
+.handoverDialog {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.dialogTitle {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+}
+
+.dialogContent {
+  padding: 24px;
+  background: #f8f9fa;
+}
+
+.dialogActions {
+  padding: 16px 24px;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Task Info Paper */
+.taskInfoPaper {
+  background: white;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Handover Stepper */
+.handoverStepper {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.stepIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #667eea;
+  color: white;
+  font-size: 14px;
+}
+
+/* Comment Field */
+.commentField {
+  background: white;
+  border-radius: 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .handoverContainer {
+    padding: 16px;
+  }
+  
+  .handoverHeader {
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .headerIcon {
+    font-size: 24px;
+    margin-right: 8px;
+  }
+  
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .timelineSection {
+    padding: 16px;
+  }
+  
+  .tasksGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .taskCardContent {
+    padding: 16px;
+  }
+  
+  .taskHeader {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .taskName {
+    font-size: 15px;
+    margin-right: 0;
+  }
+  
+  .assignmentRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .dialogContent {
+    padding: 16px;
+  }
+  
+  .handoverStepper {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .handoverContainer {
+    padding: 12px;
+  }
+  
+  .handoverHeader {
+    padding: 12px;
+  }
+  
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .timelineSection {
+    padding: 12px;
+  }
+  
+  .taskCardContent {
+    padding: 12px;
+  }
+  
+  .taskName {
+    font-size: 14px;
+  }
+  
+  .dialogTitle {
+    padding: 16px 20px;
+  }
+  
+  .dialogContent {
+    padding: 12px;
+  }
+  
+  .dialogActions {
+    padding: 12px 20px;
+  }
+}
+
+/* Animation Classes */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.taskCard {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Loading States */
+.loadingSkeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Hover Effects */
+.handoverButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+/* Focus States */
+.handoverButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: #718096;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.emptyStateText {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.emptyStateSubtext {
+  font-size: 14px;
+  color: #a0aec0;
+}
