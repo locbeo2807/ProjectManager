@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import DatePicker from '../common/DatePicker';
 import styles from './EditProjectPopup.module.css';
 
 function formatDateInput(dateStr) {
@@ -27,7 +28,7 @@ const EditProjectPopup = ({ open, onClose, project, onSubmit, membersList, error
   const [endDate, setEndDate] = useState(formatDateInput(project?.endDate));
   const [description, setDescription] = useState(project?.description || '');
   const [members] = useState(project?.members?.map(m => m.user?._id) || []);
-  const [files, setFiles] = useState([]); // new files
+  const [files, setFiles] = useState([]); // file mới
   const [newFiles, setNewFiles] = useState([]);
   const [keepFiles, setKeepFiles] = useState(project?.overviewDocs?.map(f => f.publicId) || []);
   const [errors, setErrors] = useState({});
@@ -118,13 +119,13 @@ const EditProjectPopup = ({ open, onClose, project, onSubmit, membersList, error
               <div className={styles.fieldGroup}>
                 <label className={styles.label}>Tên dự án {requiredMark}</label>
                 <input
-  className={errors.name ? `${styles.input} ${styles.inputError}` : styles.input}
-  value={name}
-  onChange={e => {
-    setName(e.target.value);
-    if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
-  }}
-/>
+                  className={errors.name ? `${styles.input} ${styles.inputError}` : styles.input}
+                  value={name}
+                  onChange={e => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                />
                 {errors.name && <div className={styles.errorTextInline}>{errors.name}</div>}
               </div>
               <div className={styles.fieldGroup}>
@@ -141,27 +142,25 @@ const EditProjectPopup = ({ open, onClose, project, onSubmit, membersList, error
               </div>
               <div className={styles.fieldGroup}>
                 <label className={styles.label}>Ngày bắt đầu {requiredMark}</label>
-                <input 
-                  className={errors.startDate ? `${styles.input} ${styles.inputError}` : styles.input}
-                  type="date" 
-                  value={startDate} 
-                  onChange={e => {
-                    setStartDate(e.target.value);
+                <DatePicker
+                  value={startDate}
+                  onChange={(value) => {
+                    setStartDate(value);
                     if (errors.startDate) setErrors(prev => ({ ...prev, startDate: '' }));
                   }}
+                  placeholder="Chọn ngày bắt đầu"
                 />
                 {errors.startDate && <div className={styles.errorTextInline}>{errors.startDate}</div>}
               </div>
               <div className={styles.fieldGroup} style={{position: 'relative'}}>
                 <label className={styles.label}>Ngày kết thúc {requiredMark}</label>
-                <input 
-                  className={errors.endDate ? `${styles.input} ${styles.inputError}` : styles.input}
-                  type="date" 
-                  value={endDate} 
-                  onChange={e => {
-                    setEndDate(e.target.value);
+                <DatePicker
+                  value={endDate}
+                  onChange={(value) => {
+                    setEndDate(value);
                     if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
                   }}
+                  placeholder="Chọn ngày kết thúc"
                 />
                 {errors.endDate && <div className={styles.errorTextInline}>{errors.endDate}</div>}
               </div>

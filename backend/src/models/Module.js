@@ -30,6 +30,12 @@ const ModuleSchema = new mongoose.Schema({
   },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+  members: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    role: { type: String, default: 'member' },
+    addedAt: { type: Date, default: Date.now },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }],
   startDate: { type: Date },
   endDate: { type: Date },
   progress: { type: Number, default: 0, min: 0, max: 100 }, // Percentage 0-100
@@ -80,18 +86,31 @@ ModuleSchema.methods.calculateProgress = async function() {
     const tasks = await Task.find({ sprint: { $in: sprintIds } });
 
     this.totalTasks = tasks.length;
+    // Hoàn thành khi trạng thái task là 'Hoàn thành' và reviewStatus là 'Đạt'
     this.completedTasks = tasks.filter(task =>
-      task.status === 'Done' && task.reviewStatus === 'Đạt'
+      task.status === 'Hoàn thành' && task.reviewStatus === 'Đạt'
     ).length;
 
     this.totalStoryPoints = tasks.reduce((sum, task) => sum + (task.storyPoints || 0), 0);
     this.completedStoryPoints = tasks
-      .filter(task => task.status === 'Done' && task.reviewStatus === 'Đạt')
+      .filter(task => task.status === 'Hoàn thành' && task.reviewStatus === 'Đạt')
       .reduce((sum, task) => sum + (task.storyPoints || 0), 0);
 
     // Tính tỷ lệ tiến độ
     if (this.totalTasks > 0) {
       this.progress = Math.round((this.completedTasks / this.totalTasks) * 100);
+
+      // Cập nhật trạng thái module dựa trên tiến độ
+      if (this.completedTasks === this.totalTasks) {
+        // Tất cả task đã Hoàn thành & Đạt review
+        this.status = 'Hoàn thành';
+      } else if (this.completedTasks > 0) {
+        // Đã bắt đầu làm nhưng chưa xong hết
+        const initialStatuses = ['Proposed', 'Chưa phát triển'];
+        if (initialStatuses.includes(this.status)) {
+          this.status = 'Đang phát triển';
+        }
+      }
     } else {
       // Nếu không có nhiệm vụ, dựa tiến độ trên trạng thái
       const statusProgress = {

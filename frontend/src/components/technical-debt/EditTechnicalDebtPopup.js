@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, FormControl, InputLabel, Select, MenuItem,
@@ -31,6 +31,24 @@ const EditTechnicalDebtPopup = ({ open, debt, onClose, onDebtUpdated }) => {
   const priorities = ['Low', 'Medium', 'High', 'Urgent'];
   const statuses = ['Identified', 'Planned', 'In Progress', 'Resolved'];
 
+  const fetchAvailableData = useCallback(async () => {
+    if (!debt?.project) return;
+
+    try {
+      const [sprints, modules] = await Promise.all([
+        sprintService.getAllSprints(),
+        moduleService.getModulesByProject(debt.project)
+      ]);
+
+      // Filter sprints theo project
+      const projectSprints = sprints.filter(sprint => sprint.project === debt.project);
+      setAvailableSprints(projectSprints);
+      setAvailableModules(modules);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  }, [debt?.project]);
+
   useEffect(() => {
     if (open && debt) {
       setFormData({
@@ -47,28 +65,10 @@ const EditTechnicalDebtPopup = ({ open, debt, onClose, onDebtUpdated }) => {
       });
       setErrors({});
 
-      // Fetch available sprints and modules
+      // Fetch available sprints và modules
       fetchAvailableData();
     }
-  }, [open, debt]);
-
-  const fetchAvailableData = async () => {
-    if (!debt?.project) return;
-
-    try {
-      const [sprints, modules] = await Promise.all([
-        sprintService.getAllSprints(),
-        moduleService.getModulesByProject(debt.project)
-      ]);
-
-      // Filter sprints by project
-      const projectSprints = sprints.filter(sprint => sprint.project === debt.project);
-      setAvailableSprints(projectSprints);
-      setAvailableModules(modules);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    }
-  };
+  }, [open, debt, fetchAvailableData]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

@@ -2,14 +2,12 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongoServer;
 
-module.exports = async () => {
+module.exports = async function globalSetup() {
   mongoServer = await MongoMemoryServer.create();
-  process.env.MONGODB_URI = mongoServer.getUri();
-  global.__MONGOSERVER__ = mongoServer;
-};
-
-module.exports.teardown = async () => {
-  if (global.__MONGOSERVER__) {
-    await global.__MONGOSERVER__.stop();
-  }
+  const mongoUri = mongoServer.getUri();
+  
+  process.env.MONGODB_URI = mongoUri;
+  process.env.NODE_ENV = 'test';
+  
+  console.log('In-memory MongoDB started for testing');
 };

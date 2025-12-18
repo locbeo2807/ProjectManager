@@ -55,9 +55,58 @@ const SprintDetail = () => {
       });
       
       setSprint(res.data);
+
+      // Permission check: only admin, BA or project members can view this sprint
+      try {
+        const userStr = localStorage.getItem('user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        const isBA = currentUser && currentUser.role === 'BA';
+
+        if (res.data.module && !isAdmin && !isBA) {
+          const moduleRes = await axiosInstance.get(`/modules/${res.data.module}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+
+          const projectMembers = moduleRes.data.project && Array.isArray(moduleRes.data.project.members)
+            ? moduleRes.data.project.members
+            : [];
+
+          const isMember = currentUser && projectMembers.some(mem => {
+            if (typeof mem.user === 'object') {
+              return mem.user._id === currentUser._id;
+            }
+            return mem.user === currentUser._id;
+          });
+
+          if (!isMember) {
+            setError('Bạn không có quyền truy cập sprint này.');
+            setSprint(null);
+            setTasks([]);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (permErr) {
+        console.error('Error checking sprint access:', permErr);
+        setError('Bạn không có quyền truy cập sprint này.');
+        setSprint(null);
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch users for task assignment
+      try {
+        const users = await UserService.searchUsers('');
+        setUsersList(users);
+      } catch {
+        setUsersList([]);
+      }
+      
       // Fetch tasks for this sprint
       try {
-        const taskRes = await axiosInstance.get(`/tasks?sprintId=${sprintId}`, {
+        const taskRes = await axiosInstance.get(`/tasks/by-sprint/${sprintId}`, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         setTasks(taskRes.data);
@@ -297,8 +346,8 @@ const SprintDetail = () => {
           isOpen={showNewTask}
           onClose={() => setShowNewTask(false)}
           sprintId={sprintId}
-          members={sprint?.members?.map(m => m.user) || []}
-          onTaskCreated={() => {
+          members={usersList}
+          onTaskAdded={() => {
             fetchSprintData();
             setShowNewTask(false);
           }}

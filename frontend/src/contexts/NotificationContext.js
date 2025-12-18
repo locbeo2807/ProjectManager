@@ -22,6 +22,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const fetchInProgressRef = useRef(false);
   const lastFetchAtRef = useRef(0);
+  const recentNotificationsRef = useRef([]); // track recent notifications to avoid spamming duplicates
   const FETCH_COOLDOWN_MS = 5000; // don't fetch more than once every 5s
   // Tạm thời lấy user từ localStorage để fix nhanh
   const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -80,7 +81,7 @@ export const NotificationProvider = ({ children }) => {
       fetchInProgressRef.current = false;
       lastFetchAtRef.current = Date.now();
     }
-  }, [user]);
+  }, []);
 
   // Handle incoming socket notifications
   const handleNotification = useCallback((newNotification) => {
@@ -91,6 +92,26 @@ export const NotificationProvider = ({ children }) => {
       return; // Do not process
     }
     
+    try {
+      // Basic time-window deduplication to avoid spamming the same toast many times
+      const now = Date.now();
+      const WINDOW_MS = 3000; // 3s window for duplicate suppression
+      const key = `${newNotification.type || ''}::${newNotification.message}`;
+
+      // Clean old entries
+      recentNotificationsRef.current = (recentNotificationsRef.current || []).filter(entry => now - entry.timestamp < WINDOW_MS);
+
+      const alreadyRecent = recentNotificationsRef.current.some(entry => entry.key === key);
+      if (alreadyRecent) {
+        console.log('Skipping duplicate notification within time window:', key);
+        return;
+      }
+
+      recentNotificationsRef.current.push({ key, timestamp: now });
+    } catch (dedupErr) {
+      console.error('Error in notification deduplication logic', dedupErr);
+    }
+
     console.log('Processing notification:', newNotification.message);
     // Hiển thị toast notification
     toast.info(newNotification.message);
@@ -116,7 +137,7 @@ export const NotificationProvider = ({ children }) => {
     ) {
       window.dispatchEvent(new Event('refreshProjects'));
     }
-  }, [user]);
+  }, []);
 
   // Also listen to window-level 'socket-notification' events which some clients dispatch
   useEffect(() => {

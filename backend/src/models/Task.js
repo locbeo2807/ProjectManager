@@ -18,8 +18,8 @@ const TaskSchema = new mongoose.Schema({
     default: 'Feature'
   },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  assignee: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  reviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  assignees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   status: {
     type: String,
     enum: ['Hàng đợi', 'Chưa làm', 'Đang làm', 'Đang xem xét', 'Kiểm thử QA', 'Sẵn sàng phát hành', 'Hoàn thành', 'Mới', 'Đang xác nhận', 'Đang sửa', 'Kiểm thử lại', 'Đã đóng'],
@@ -69,7 +69,8 @@ const TaskSchema = new mongoose.Schema({
   businessWorkflow: {
     baConfirmRequirement: { type: Boolean, default: false },
     baApproveUI: { type: Boolean, default: false },
-    baAcceptFeature: { type: Boolean, default: false }
+    baAcceptFeature: { type: Boolean, default: false },
+    poAcceptFeature: { type: Boolean, default: false } // Product Owner final acceptance
   },
   // Tiêu chí chấp nhận
   acceptanceCriteria: [{ type: String }],
@@ -141,8 +142,8 @@ const TaskSchema = new mongoose.Schema({
 
 // Chỉ mục để tối ưu hiệu suất
 TaskSchema.index({ sprint: 1, status: 1 });
-TaskSchema.index({ assignee: 1 });
-TaskSchema.index({ reviewer: 1 });
+TaskSchema.index({ assignees: 1 });
+TaskSchema.index({ reviewers: 1 });
 TaskSchema.index({ epic: 1 });
 TaskSchema.index({ taskType: 1 });
 TaskSchema.index({ priority: 1 });

@@ -1,5 +1,5 @@
-// Migration Script to Fix User Roles
-// This script updates any existing users with lowercase role values to the correct uppercase/case values as defined in the User model enum.
+// Migration Script để sửa User Roles
+// Script này cập nhật các user có role viết thường thành đúng hoa/thường như định nghĩa trong enum User model.
 
 const mongoose = require('mongoose');
 const User = require('./src/models/User');
@@ -15,7 +15,7 @@ async function migrateUserRoles() {
 
     console.log('📡 Connected to MongoDB');
 
-    // Define role mappings from lowercase to correct case
+    // Định nghĩa mapping role từ chữ thường sang đúng hoa/thường
     const roleMappings = {
       'pm': 'PM',
       'ba': 'BA',
@@ -27,12 +27,12 @@ async function migrateUserRoles() {
       'product owner': 'Product Owner'
     };
 
-    // Get all lowercase roles to search for
+    // Lấy tất cả roles viết thường để tìm kiếm
     const lowercaseRoles = Object.keys(roleMappings);
 
     console.log('🔍 Finding users with lowercase roles...');
 
-    // Find users with roles that need to be updated
+    // Tìm users có roles cần cập nhật
     const usersToUpdate = await User.find({
       role: { $in: lowercaseRoles }
     });
@@ -44,7 +44,7 @@ async function migrateUserRoles() {
       return;
     }
 
-    // Update each user
+    // Cập nhật từng user
     let updatedCount = 0;
     for (const user of usersToUpdate) {
       const newRole = roleMappings[user.role];
@@ -69,7 +69,7 @@ async function migrateUserRoles() {
   }
 }
 
-// Instructions
+// Hướng dẫn
 console.log('🔧 User Roles Migration Script');
 console.log('===============================');
 console.log('');
@@ -81,7 +81,7 @@ console.log('- .env file with MONGODB_URI');
 console.log('- Backend dependencies installed');
 console.log('');
 
-// Run migration if called directly
+// Chạy migration nếu được gọi trực tiếp
 if (require.main === module) {
   migrateUserRoles();
 }

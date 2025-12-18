@@ -13,6 +13,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import HistoryList from '../components/common/HistoryList';
 import { Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import { Close as CloseIcon, Visibility as ViewIcon } from '@mui/icons-material';
+import socketManager from '../utils/socket';
 
 const TABS = {
   SPRINTS: 'Danh sách sprint',
@@ -25,7 +26,7 @@ const statusColors = {
   'Hoàn thành': { background: '#e6f4ea', color: '#28a745' },
 };
 
-// Enhanced styles for sprint cards
+// Enhanced styles cho sprint cards
 const sprintCardStyles = {
   card: {
     background: 'white',
@@ -236,6 +237,32 @@ const ModuleDetail = () => {
     fetchModuleData();
   }, [fetchModuleData]);
 
+  // Socket handling for real-time sprint updates
+  useEffect(() => {
+    if (moduleId) {
+      // Join module room for real-time updates
+      socketManager.joinModuleRoom(moduleId);
+
+      // Listen for sprint creation events
+      const handleSprintCreated = (event) => {
+        const { newSprint, moduleId: eventModuleId } = event.detail;
+        // Only update if the sprint belongs to this module
+        if (eventModuleId === moduleId) {
+          console.log('New sprint created in this module:', newSprint);
+          setSprints(prevSprints => [...prevSprints, newSprint]);
+        }
+      };
+
+      window.addEventListener('sprint-created', handleSprintCreated);
+
+      // Cleanup function
+      return () => {
+        socketManager.leaveModuleRoom(moduleId);
+        window.removeEventListener('sprint-created', handleSprintCreated);
+      };
+    }
+  }, [moduleId]);
+
   // Lấy danh sách user khi mở popup
   const handleOpenEdit = async () => {
     setEditOpen(true);
@@ -298,6 +325,24 @@ const ModuleDetail = () => {
       URL.revokeObjectURL(imagePreview.src);
     }
     setImagePreview({ open: false, src: '', name: '' });
+  };
+
+  const handleDeleteSprint = async (sprintId, e) => {
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    if (!window.confirm('Bạn có chắc chắn muốn xóa sprint này?')) return;
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      await axiosInstance.delete(`/sprints/${sprintId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      await refreshModuleData();
+      toast.success('Xóa sprint thành công');
+    } catch (err) {
+      console.error('Lỗi khi xóa sprint:', err);
+      toast.error('Không thể xóa sprint. Vui lòng thử lại.');
+    }
   };
 
   if (error) return (
@@ -602,17 +647,32 @@ const ModuleDetail = () => {
                     </div>
                     
                     <div style={sprintCardStyles.footer}>
-                      <button
-                        style={sprintCardStyles.viewButton}
-                        onMouseEnter={(e) => {
-                          Object.assign(e.target.style, sprintCardStyles.viewButtonHover);
-                        }}
-                        onMouseLeave={(e) => {
-                          Object.assign(e.target.style, sprintCardStyles.viewButton);
-                        }}
-                      >
-                        Xem chi tiết
-                      </button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {(isAdmin || isBA) && (
+                          <button
+                            style={{
+                              ...sprintCardStyles.viewButton,
+                              background: '#fff5f5',
+                              borderColor: '#feb2b2',
+                              color: '#c53030',
+                            }}
+                            onClick={(e) => handleDeleteSprint(s._id, e)}
+                          >
+                            Xóa
+                          </button>
+                        )}
+                        <button
+                          style={sprintCardStyles.viewButton}
+                          onMouseEnter={(e) => {
+                            Object.assign(e.target.style, sprintCardStyles.viewButtonHover);
+                          }}
+                          onMouseLeave={(e) => {
+                            Object.assign(e.target.style, sprintCardStyles.viewButton);
+                          }}
+                        >
+                          Xem chi tiết
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -644,31 +704,10 @@ const ModuleDetail = () => {
       <NewSprintPopup
         isOpen={sprintOpen}
         onClose={() => setSprintOpen(false)}
-        users={module && module.project && Array.isArray(module.project.members) ? module.project.members.map(m => m.user) : []}
         moduleId={module?._id}
-        onSubmit={async data => {
-          try {
-            const formData = new FormData();
-            formData.append('name', data.name);
-            formData.append('goal', data.goal || '');
-            formData.append('startDate', data.startDate);
-            formData.append('endDate', data.endDate);
-            formData.append('moduleId', module._id);
-            if (data.members && data.members.length > 0) {
-              formData.append('members', JSON.stringify(data.members));
-            }
-            if (data.repoLink) formData.append('repoLink', data.repoLink);
-            if (data.gitBranch) formData.append('gitBranch', data.gitBranch);
-            
-            await axiosInstance.post('/sprints', formData, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-            });
-            setSprintOpen(false);
-            await refreshModuleData();
-            toast.success('Tạo sprint thành công!');
-          } catch (e) {
-            alert('Tạo sprint thất bại!');
-          }
+        onSprintCreated={async () => {
+          await refreshModuleData();
+          toast.success('Tạo sprint thành công!');
         }}
       />
       {/* Image Preview Dialog */}
@@ -713,4 +752,4 @@ const ModuleDetail = () => {
   );
 };
 
-export default ModuleDetail; 
+export default ModuleDetail;

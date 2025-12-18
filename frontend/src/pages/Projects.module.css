@@ -1,10 +1,4 @@
-.container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: 100vh;
-  position: relative;
-}
+/* This file is no longer used - Projects page now uses Material-UI components */
 
 .filterContainer {
   display: flex;

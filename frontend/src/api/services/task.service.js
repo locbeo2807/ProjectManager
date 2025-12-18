@@ -78,10 +78,10 @@ const TaskService = {
     return response.data;
   },
 
-  // Completion files methods
+  // Các phương thức file hoàn thành
   uploadCompletionFiles: async (taskId, files, description) => {
     const formData = new FormData();
-    // files can be FileList or Array
+    // files có thể là FileList hoặc Array
     const fileArray = Array.from(files);
     fileArray.forEach(file => {
       formData.append('completionFiles', file);
@@ -114,7 +114,7 @@ const TaskService = {
     return response.data;
   },
 
-  // Add missing singular upload method for backward compatibility
+  // Thêm phương thức upload đơn bị thiếu cho tương thích ngược
   uploadCompletionFile: async (taskId, file) => {
     const formData = new FormData();
     formData.append('completionFiles', file);

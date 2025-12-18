@@ -2,7 +2,7 @@ import axiosInstance from '../api/axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// helper: exponential backoff retry for 429 responses
+// helper: exponential backoff retry cho responses 429
 async function requestWithBackoff(fn, { retries = 4, minDelay = 500 } = {}) {
   let attempt = 0;
   while (true) {
@@ -24,7 +24,7 @@ async function requestWithBackoff(fn, { retries = 4, minDelay = 500 } = {}) {
 }
 
 class NotificationService {
-  // Get all notifications for the current user
+  // Lấy tất cả notifications cho user hiện tại
   async getNotifications() {
     try {
       const response = await requestWithBackoff(() => axiosInstance.get(`${API_BASE_URL}/notifications`));
@@ -35,7 +35,7 @@ class NotificationService {
     }
   }
 
-  // Mark a notification as read
+  // Đánh dấu notification là đã đọc
   async markAsRead(notificationId) {
     try {
       const response = await axiosInstance.put(`${API_BASE_URL}/notifications/${notificationId}/read`);
@@ -46,7 +46,7 @@ class NotificationService {
     }
   }
 
-  // Mark all notifications as read
+  // Đánh dấu tất cả notifications là đã đọc
   async markAllAsRead() {
     try {
       // backend route expects PATCH /notifications/read
@@ -80,7 +80,7 @@ class NotificationService {
     }
   }
 
-  // Get unread notifications count
+  // Lấy số lượng notifications chưa đọc
   async getUnreadCount() {
     // Simple client-side caching + in-flight guard to avoid hammering the endpoint
     if (!this._unreadCache) {
@@ -89,19 +89,19 @@ class NotificationService {
     const COOLDOWN = 5000; // ms
     const now = Date.now();
 
-    // If there's a pending request, return it (so callers share the same promise)
+    // Nếu có request đang chờ, trả về nó (để callers chia sẻ cùng promise)
     if (this._unreadCache.pending) return this._unreadCache.pending;
 
-    // If cached and fresh, return cached value
+    // Nếu có cache và còn mới, trả về giá trị cache
     if (this._unreadCache.ts && now - this._unreadCache.ts < COOLDOWN) {
       return Promise.resolve(this._unreadCache.value);
     }
 
-    // Otherwise make request and cache result
+    // Ngược lại, tạo request và cache kết quả
     const p = requestWithBackoff(() => axiosInstance.get(`${API_BASE_URL}/notifications/unread-count`))
       .then((res) => {
         this._unreadCache.ts = Date.now();
-        // Normalize response to a number. Server might return a bare number or an object like { count } or { unreadCount }.
+        // Chuẩn hóa response thành số. Server có thể trả về số trần hoặc object như { count } hoặc { unreadCount }.
         const data = res && typeof res.data !== 'undefined' ? res.data : res;
         let num = 0;
         if (typeof data === 'number') num = data;
@@ -123,7 +123,7 @@ class NotificationService {
     return p;
   }
 
-  // Create a new notification (for admin/system use)
+  // Tạo notification mới (dùng cho admin/system)
   async createNotification(notificationData) {
     try {
       const response = await axiosInstance.post(`${API_BASE_URL}/notifications`, notificationData);
@@ -134,7 +134,7 @@ class NotificationService {
     }
   }
 
-  // Get notifications by type
+  // Lấy notifications theo loại
   async getNotificationsByType(type) {
     try {
       const response = await axiosInstance.get(`${API_BASE_URL}/notifications/type/${type}`);
@@ -145,7 +145,7 @@ class NotificationService {
     }
   }
 
-  // Get notifications with pagination
+  // Lấy notifications với phân trang
   async getNotificationsPaginated(page = 1, limit = 20) {
     try {
       const response = await axiosInstance.get(`${API_BASE_URL}/notifications`, {
@@ -180,7 +180,7 @@ class NotificationService {
     }
   }
 
-  // Subscribe to notification types
+  // Đăng ký các loại notifications
   async subscribeToTypes(types) {
     try {
       const response = await axiosInstance.post(`${API_BASE_URL}/notifications/subscribe`, { types });
@@ -191,7 +191,7 @@ class NotificationService {
     }
   }
 
-  // Unsubscribe from notification types
+  // Hủy đăng ký các loại notifications
   async unsubscribeFromTypes(types) {
     try {
       const response = await axiosInstance.post(`${API_BASE_URL}/notifications/unsubscribe`, { types });

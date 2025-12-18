@@ -9,7 +9,7 @@ import styles from './ConversationList.module.css';
 
 const getInitial = (name) => name ? name.charAt(0).toUpperCase() : '?';
 
-// Generate a consistent color from a string (for avatar background)
+// Generate màu sắc nhất quán từ chuỗi (cho avatar background)
 const getColorFromString = (str) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -67,7 +67,7 @@ const ConversationList = ({ onSelectConversation }) => {
     );
   };
 
-  // Filter conversations by search
+  // Filter conversations theo search
   const filteredConversations = useMemo(() => {
     if (!search.trim()) return conversations;
     return conversations.filter(conv => {

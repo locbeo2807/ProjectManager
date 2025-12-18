@@ -1,7 +1,20 @@
 .taskSection {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  animation: slideInUp 0.6s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Header */
@@ -9,9 +22,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 24px 28px;
   border-bottom: 1px solid #e8eaf6;
-  background: #f8f9ff;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f0ff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.taskHeader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(102, 126, 234, 0.03) 50%, transparent 70%);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .taskHeaderLeft {
@@ -100,16 +131,60 @@
 .taskCard {
   background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.3s ease;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+  animation: fadeInScale 0.6s ease-out forwards;
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.taskCard:nth-child(1) { animation-delay: 0.1s; }
+.taskCard:nth-child(2) { animation-delay: 0.2s; }
+.taskCard:nth-child(3) { animation-delay: 0.3s; }
+.taskCard:nth-child(4) { animation-delay: 0.4s; }
+.taskCard:nth-child(5) { animation-delay: 0.5s; }
+.taskCard:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.taskCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.taskCard:hover::before {
+  transform: scaleX(1);
 }
 
 .taskCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: #cbd5e0;
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  border-color: #667eea;
+}
+
+.taskCard:active {
+  transform: translateY(-4px) scale(0.98);
+  transition: all 0.1s ease;
 }
 
 .taskCardHeader {
@@ -190,42 +265,165 @@
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid #f7fafc;
+  flex-wrap: wrap;
+}
+
+.viewTaskBtn {
+  background: linear-gradient(135deg, #e6f4ea 0%, #d4edda 100%);
+  border: 1px solid #c3e6cb;
+  color: #155724;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.viewTaskBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(21, 87, 36, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.viewTaskBtn:hover::before {
+  width: 120%;
+  height: 120%;
+}
+
+.viewTaskBtn:hover {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  border-color: #28a745;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.viewTaskBtn:active {
+  transform: translateY(0);
+  transition: all 0.1s ease;
 }
 
 .editTaskBtn {
-  background: #f7fafc;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   border: 1px solid #e2e8f0;
   color: #4a5568;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.editTaskBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.editTaskBtn:hover::before {
+  width: 120%;
+  height: 120%;
 }
 
 .editTaskBtn:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-  color: #2d3748;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.editTaskBtn:active {
+  transform: translateY(0);
+  transition: all 0.1s ease;
 }
 
 .deleteTaskBtn {
-  background: #fff5f5;
+  background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
   border: 1px solid #feb2b2;
   color: #c53030;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  animation: gentlePulse 2s ease-in-out infinite;
+}
+
+.deleteTaskBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(197, 48, 48, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.deleteTaskBtn:hover::before {
+  width: 120%;
+  height: 120%;
 }
 
 .deleteTaskBtn:hover {
-  background: #fed7d7;
-  border-color: #fc8181;
-  color: #9b2c2c;
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  border-color: #e53e3e;
+  color: white;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+  animation: none;
+}
+
+.deleteTaskBtn:active {
+  transform: translateY(0) scale(1);
+  transition: all 0.1s ease;
+}
+
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes successPulse {
+  0% {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+  }
+  50% {
+    box-shadow: 0 30px 60px rgba(102, 126, 234, 0.3);
+    border-color: #28a745;
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+  }
 }
 
 /* Confirmation Dialog */

@@ -5,27 +5,23 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import MarkAsReadIcon from '@mui/icons-material/Drafts';
 import notificationService from '../services/notificationService';
 import dayjs from 'dayjs';
+import { useNotifications } from '../contexts/NotificationContext';
 
 const NotificationsHistory = () => {
   const [notifications, setNotifications] = useState([]);
-  const [page, setPage] = useState(1);
-  const [limit] = useState(20);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { clearNotifications: clearGlobalNotifications, markAllAsRead: markAllGlobalAsRead, deleteNotification: deleteGlobalNotification, markAsRead: markGlobalAsRead } = useNotifications();
 
-  const loadPage = async (p = 1) => {
+  const loadNotifications = async () => {
     try {
       setLoading(true);
-      const res = await notificationService.getNotificationsPaginated(p, limit);
-      // res expected shape: { data, total, page, limit }
-      const { data, total: t } = res;
-      if (p === 1) setNotifications(data);
-      else setNotifications(prev => [...prev, ...data]);
-      setTotal(t);
-      setPage(p);
+      const data = await notificationService.getNotifications();
+      // Sort by createdAt descending and take only the latest 5
+      const sortedNotifications = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+      setNotifications(sortedNotifications);
     } catch (err) {
-      console.error('Failed to load notifications page', err);
+      console.error('Failed to load notifications', err);
     } finally {
       setLoading(false);
     }
@@ -35,6 +31,8 @@ const NotificationsHistory = () => {
     try {
       await notificationService.markAsRead(id);
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+      // Đồng bộ với dropdown bell
+      await markGlobalAsRead(id);
     } catch (err) {
       console.error('Failed to mark as read', err);
     }
@@ -44,7 +42,8 @@ const NotificationsHistory = () => {
     try {
       await notificationService.deleteNotification(id);
       setNotifications(prev => prev.filter(n => n._id !== id));
-      setTotal(prev => Math.max(0, prev - 1));
+      // Đồng bộ với dropdown bell
+      await deleteGlobalNotification(id);
     } catch (err) {
       console.error('Failed to delete notification', err);
     }
@@ -54,6 +53,8 @@ const NotificationsHistory = () => {
     try {
       await notificationService.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      // Đồng bộ với dropdown bell
+      await markAllGlobalAsRead();
     } catch (err) {
       console.error('Failed to mark all as read', err);
     }
@@ -63,7 +64,8 @@ const NotificationsHistory = () => {
     try {
       await notificationService.clearAllNotifications();
       setNotifications([]);
-      setTotal(0);
+      // Đồng bộ với dropdown bell
+      clearGlobalNotifications();
     } catch (err) {
       console.error('Failed to clear notifications', err);
     }
@@ -77,12 +79,8 @@ const NotificationsHistory = () => {
       return;
     }
 
-    loadPage(1);
-  }, []);
-
-  const handleLoadMore = () => {
-    loadPage(page + 1);
-  };
+    loadNotifications();
+  }, [navigate]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -93,38 +91,35 @@ const NotificationsHistory = () => {
       </Stack>
 
       <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
-        {notifications.map(n => (
-          <React.Fragment key={n._id}>
-            <ListItem alignItems="flex-start" secondaryAction={
-              <Stack direction="row" spacing={1}>
-                {!n.isRead && (
-                  <IconButton edge="end" aria-label="mark-read" onClick={() => handleMarkAsRead(n._id)}>
-                    <MarkAsReadIcon />
+        {notifications.length > 0 ? (
+          notifications.map(n => (
+            <React.Fragment key={n._id}>
+              <ListItem alignItems="flex-start" secondaryAction={
+                <Stack direction="row" spacing={1}>
+                  {!n.isRead && (
+                    <IconButton edge="end" aria-label="mark-read" onClick={() => handleMarkAsRead(n._id)}>
+                      <MarkAsReadIcon />
+                    </IconButton>
+                  )}
+                  <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(n._id)}>
+                    <DeleteIcon />
                   </IconButton>
-                )}
-                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(n._id)}>
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
-            }>
-              <ListItemText
-                primary={<Typography sx={{ fontWeight: n.isRead ? 400 : 700 }}>{n.message}</Typography>}
-                secondary={<Typography variant="caption">{dayjs(n.createdAt).format('DD/MM/YYYY HH:mm')}</Typography>}
-              />
-            </ListItem>
-            <Divider component="li" />
-          </React.Fragment>
-        ))}
-      </List>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-        {notifications.length < total ? (
-          <Button variant="outlined" onClick={handleLoadMore} disabled={loading}>
-            {loading ? 'Đang tải...' : 'Xem thêm'}
-          </Button>
+                </Stack>
+              }>
+                <ListItemText
+                  primary={<Typography sx={{ fontWeight: n.isRead ? 400 : 700 }}>{n.message}</Typography>}
+                  secondary={<Typography variant="caption">{dayjs(n.createdAt).format('DD/MM/YYYY HH:mm')}</Typography>}
+                />
+              </ListItem>
+              <Divider component="li" />
+            </React.Fragment>
+          ))
         ) : (
-          <Typography variant="body2" color="text.secondary">Không còn thông báo nào</Typography>
+          <Box sx={{ py: 6, px: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'text.secondary' }}>
+            <Typography variant="body2">Không có thông báo nào</Typography>
+          </Box>
         )}
-      </Box>
+      </List>
     </Box>
   );
 };

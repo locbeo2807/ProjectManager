@@ -1,4 +1,5 @@
 const Project = require('../models/Project');
+const Task = require('../models/Task');
 const Module = require('../models/Module');
 const { createError } = require('../utils/error');
 const User = require('../models/User');
@@ -11,10 +12,10 @@ const { formatVNDate } = require('../utils/dateFormatter');
 
 // Tạo dự án mới
 exports.createProject = async (req, res, next) => {
-  // Chỉ cho phép PM và TestPM tạo dự án
+  // Chỉ cho phép PM tạo dự án
   console.log('createProject called with user:', { userId: req.user._id, role: req.user.role });
-  if (!['PM', 'TestPM'].includes(req.user.role)) {
-    return next(createError(403, 'Chỉ PM và TestPM mới có quyền tạo dự án mới.'));
+  if (req.user.role !== 'PM') {
+    return next(createError(403, 'Chỉ PM mới có quyền tạo dự án mới.'));
   }
   try {
     const { projectId, name, description, startDate, endDate, version, members, projectManager } = req.body;
@@ -81,6 +82,15 @@ exports.createProject = async (req, res, next) => {
     });
     await project.save();
 
+    // Gửi notification cho tất cả user liên quan khi tạo project
+    try {
+      const creator = await User.findById(req.user._id);
+      const { sendProjectCreatedNotification } = require('../services/projectNotificationService');
+      await sendProjectCreatedNotification(project, creator);
+    } catch (err) {
+      console.error('projectController: failed to send project created notification', err);
+    }
+
     // Gửi notification cho người phụ trách project (BA được assign)
     try {
       console.log('Bắt đầu gửi notification cho assigned BA:', projectManager);
@@ -90,31 +100,15 @@ exports.createProject = async (req, res, next) => {
         console.log('Gửi workflow notification...');
         const notifications = await require('../services/notificationService').createWorkflowNotification(
           'project_assigned',
-          { 
+          {
             projectName: project.name,
             refId: project._id.toString()
           },
-          { 
+          {
             assignedUserId: assignedBAUser._id.toString()
           }
         );
         console.log('Notification sent successfully to BA:', notifications);
-        
-        // Test direct socket notification
-        try {
-          const testNotification = {
-            _id: new Date().getTime(),
-            message: `TEST: Bạn được giao project ${project.name}`,
-            type: 'project_assigned',
-            refId: project._id.toString(),
-            createdAt: new Date()
-          };
-          console.log('Sending direct socket test to:', assignedBAUser._id.toString());
-          socketManager.sendNotification(assignedBAUser._id.toString(), testNotification);
-          console.log('Direct socket test sent');
-        } catch (socketErr) {
-          console.error('Direct socket test failed:', socketErr);
-        }
       } else {
         console.log('Không tìm thấy assigned BA user với ID:', projectManager);
       }
@@ -131,13 +125,73 @@ exports.createProject = async (req, res, next) => {
 // Get all projects
 exports.getProjects = async (req, res, next) => {
   try {
-    // If the logged-in user is a BA, only return projects assigned to them
-    const query = {};
-    if (req.user && req.user.role === 'BA') {
-      query.projectManager = req.user._id;
+    // Admin: thấy tất cả dự án
+    if (req.user && req.user.role === 'admin') {
+      const allProjects = await Project.find({})
+        .populate('createdBy', 'name email role')
+        .populate('members.user', 'userID name email phoneNumber role')
+        .sort({ createdAt: -1 });
+      return res.json(allProjects);
     }
 
-    const projects = await Project.find(query)
+    const userId = req.user?._id;
+    let baseQuery = {};
+
+    // BA: ưu tiên các project mà BA là projectManager
+    if (req.user && req.user.role === 'BA') {
+      baseQuery = { projectManager: userId };
+    }
+
+    // Lấy danh sách projectId từ các task mà user là assignee hoặc reviewer
+    let taskProjectIds = [];
+    if (userId) {
+      const userTasks = await Task.find({
+        $or: [
+          { assignees: userId },
+          { reviewers: userId }
+        ]
+      }).select('project');
+
+      const idSet = new Set();
+      for (const t of userTasks) {
+        if (t.project) idSet.add(t.project.toString());
+      }
+      taskProjectIds = Array.from(idSet);
+    }
+
+    // Xây query cuối cùng
+    let finalQuery = baseQuery;
+
+    // Nếu không phải BA (ví dụ Dev, QA...), giới hạn thêm theo membership và task
+    if (!req.user || (req.user.role !== 'BA' && req.user.role !== 'admin')) {
+      const orConditions = [];
+
+      if (userId) {
+        orConditions.push(
+          { projectManager: userId },
+          { createdBy: userId },
+          { 'members.user': userId }
+        );
+      }
+
+      if (taskProjectIds.length > 0) {
+        orConditions.push({ _id: { $in: taskProjectIds } });
+      }
+
+      if (orConditions.length > 0) {
+        finalQuery = { $or: orConditions };
+      }
+    } else if (taskProjectIds.length > 0) {
+      // BA: thêm các project có task liên quan vào cùng với baseQuery
+      finalQuery = {
+        $or: [
+          baseQuery,
+          { _id: { $in: taskProjectIds } }
+        ]
+      };
+    }
+
+    const projects = await Project.find(finalQuery)
       .populate('createdBy', 'name email role')
       .populate('members.user', 'userID name email phoneNumber role')
       .sort({ createdAt: -1 });
@@ -184,14 +238,35 @@ exports.updateProject = async (req, res, next) => {
 
     // Cập nhật members
     if (Array.isArray(members)) {
+      // Lưu lại danh sách member cũ để xác định ai là người mới được thêm
+      const oldMemberIds = project.members.map((m) => m.user.toString());
+
       let memberList = [];
+      const addedUserDocs = [];
       for (const m of members) {
         const user = await User.findById(m.user);
         if (user) {
           memberList.push({ user: user._id });
+          if (!oldMemberIds.includes(user._id.toString())) {
+            addedUserDocs.push(user);
+          }
         }
       }
+
       project.members = memberList;
+
+      // Gửi notification cho các member mới được thêm
+      if (addedUserDocs.length > 0) {
+        try {
+          const { sendProjectMemberAddedNotification } = require('../services/projectNotificationService');
+          const addedBy = await User.findById(req.user._id).select('name role');
+          for (const memberUser of addedUserDocs) {
+            await sendProjectMemberAddedNotification(project, memberUser, addedBy || req.user);
+          }
+        } catch (err) {
+          console.error('projectController.updateProject: failed to send project member added notification', err);
+        }
+      }
     }
     
     // Xử lý overviewDocs (upload/xóa file) chỉ khi keepFiles được cung cấp

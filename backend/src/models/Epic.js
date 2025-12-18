@@ -114,7 +114,7 @@ EpicSchema.pre('save', function(next) {
   next();
 });
 
-// Method to populate details
+// Method để populate details
 EpicSchema.methods.populateDetails = function() {
   return this.populate([
     { path: 'project', select: 'name projectId' },

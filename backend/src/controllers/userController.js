@@ -164,24 +164,30 @@ exports.checkUserId = catchAsync(async (req, res, next) => {
   }
 });
 
-// Search users by name or email (authenticated users)
+// Search users theo name hoặc email (authenticated users)
 exports.searchUsers = catchAsync(async (req, res, next) => {
   const q = req.query.q || '';
+
+  // Nếu query rỗng hoặc quá ngắn, trả về danh sách users (giới hạn 20)
   if (!q || q.trim().length < 2) {
-    return res.json([]);
+    const users = await User.find({})
+    .select('name email role userID')
+    .limit(20)
+    .sort({ name: 1 });
+    return res.json(users);
   }
 
+  // Search với query
   const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, ''), 'i');
   const users = await User.find({
-    $and: [
-      { status: { $in: ['hoạt động', 'active'] } },
-      { $or: [{ name: regex }, { email: regex }] }
-    ]
-  }).select('name email role');
+    $or: [{ name: regex }, { email: regex }, { userID: regex }]
+  })
+  .select('name email role userID')
+  .limit(20)
+  .sort({ name: 1 });
 
   res.json(users);
 });
-
 
 // Tạo user mới
 exports.createUser = catchAsync(async (req, res, next) => {

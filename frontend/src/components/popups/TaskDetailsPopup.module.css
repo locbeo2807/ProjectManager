@@ -1,0 +1,177 @@
+.dialog {
+  animation: slideInDialog 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes slideInDialog {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dialogTitle {
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f0ff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 20px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dialogTitle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(102, 126, 234, 0.05) 50%, transparent 70%);
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.taskTitle {
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.dialogContent {
+  padding: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  min-height: 500px;
+}
+
+.tabContent {
+  padding: 24px;
+  animation: fadeInTab 0.3s ease-out;
+}
+
+@keyframes fadeInTab {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.infoCard {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  animation: slideInCard 0.4s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.infoCard:nth-child(1) { animation-delay: 0.1s; }
+.infoCard:nth-child(2) { animation-delay: 0.2s; }
+.infoCard:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes slideInCard {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.infoCard:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.dialogActions {
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-top: 1px solid #e2e8f0;
+  animation: slideInActions 0.6s ease-out 0.4s forwards;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@keyframes slideInActions {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dialog {
+    margin: 8px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .dialogTitle {
+    padding: 16px 20px;
+  }
+
+  .dialogContent {
+    padding: 0;
+  }
+
+  .tabContent {
+    padding: 16px;
+  }
+
+  .infoCard {
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dialogTitle {
+    padding: 12px 16px;
+  }
+
+  .tabContent {
+    padding: 12px;
+  }
+}
+
+/* Timer Styles */
+.timerContainer {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.timerDisplay {
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  margin: 20px 0;
+  color: #1976d2;
+}
+
+.timerControls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}

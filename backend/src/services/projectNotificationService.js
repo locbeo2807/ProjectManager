@@ -1,4 +1,4 @@
-const { createWorkflowNotification } = require('../services/notificationService');
+const { createWorkflowNotification, createNotification } = require('../services/notificationService');
 
 /**
  * Project Notification Service
@@ -12,10 +12,21 @@ const { createWorkflowNotification } = require('../services/notificationService'
  */
 const sendProjectCreatedNotification = async (project, creator) => {
   try {
+    // Gửi notification theo rule role-based (PM, BA, Product Owner, v.v.)
     await createWorkflowNotification('project_created', {
       projectName: project.name,
       creatorName: creator.name
     });
+
+    // Đảm bảo chính người tạo project cũng luôn nhận được một notification riêng
+    if (creator && creator._id) {
+      await createNotification(
+        creator._id,
+        `Bạn đã tạo dự án mới "${project.name}" thành công`,
+        'project_created',
+        project._id
+      );
+    }
 
     console.log(`Project created notification sent for ${project.name}`);
   } catch (error) {

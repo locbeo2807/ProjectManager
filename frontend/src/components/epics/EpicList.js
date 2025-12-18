@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Chip, LinearProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid,
-  Avatar, IconButton, Menu, MenuItem
+  Avatar, IconButton, Menu, MenuItem, Grid
 } from '@mui/material';
 import {
-  Add, MoreVert, Timeline, Assignment, Person, Flag
+  Add, MoreVert, Timeline, Assignment, Person
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { epicService } from '../../api/services/epic.service';
@@ -24,13 +23,9 @@ const EpicList = ({ projectId }) => {
 
   const userPermissions = ROLE_PERMISSIONS[user.role] || {};
   const canCreateEpic = userPermissions.canCreateEpic;
-  const canUpdateEpic = userPermissions.canCreateEpic; // Same permission for update
+  const canUpdateEpic = userPermissions.canCreateEpic; // Cùng quyền cho update
 
-  useEffect(() => {
-    fetchEpics();
-  }, [projectId]);
-
-  const fetchEpics = async () => {
+  const fetchEpics = useCallback(async () => {
     try {
       setLoading(true);
       const data = await epicService.getEpicsByProject(projectId);
@@ -40,7 +35,11 @@ const EpicList = ({ projectId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchEpics();
+  }, [fetchEpics]);
 
   const handleMenuOpen = (event, epic) => {
     setAnchorEl(event.currentTarget);

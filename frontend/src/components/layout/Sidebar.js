@@ -15,12 +15,9 @@ import {
   ExitToApp as LogoutIcon,
   Dashboard,
   Folder,
-  Assignment,
   People,
-  Assessment,
   Security,
   Build,
-  Business,
   Chat,
   Settings
 } from '@mui/icons-material';
@@ -33,39 +30,36 @@ import { motion } from 'framer-motion';
 
 const drawerWidth = 240;
 
-// Role-based menu items configuration
+// Cấu hình menu items dựa trên vai trò
 const MENU_ITEMS_CONFIG = {
   dashboard: { icon: <Dashboard />, text: 'Dashboard', path: '/dashboard' },
   projects: { icon: <Folder />, text: 'Dự án', path: '/projects' },
-  tasks: { icon: <Assignment />, text: 'Công việc', path: '/tasks' },
   team: { icon: <People />, text: 'Đội ngũ', path: '/users' },
-  quality: { icon: <Assessment />, text: 'Chất lượng', path: '/quality' },
   security: { icon: <Security />, text: 'Bảo mật', path: '/security' },
   deployments: { icon: <Build />, text: 'Triển khai', path: '/deployments' },
-  requirements: { icon: <Business />, text: 'Yêu cầu', path: '/requirements' },
   chats: { icon: <Chat />, text: 'Trò chuyện', path: '/chats' },
   admin: { icon: <Settings />, text: 'Quản trị', path: '/admin' }
 };
 
-// Generate menu items based on user role
+// Tạo menu items dựa trên vai trò người dùng
 const getMenuItemsForRole = (userRole, conversations) => {
   const baseItems = ['dashboard', 'projects', 'chats'];
 
   const roleSpecificItems = {
-    'PM': ['tasks', 'team', 'quality'],
-    'BA': ['requirements', 'tasks', 'quality'],
-    'Developer': ['tasks', 'quality'],
-    'QA Tester': ['tasks', 'quality', 'security'],
-    'QC': ['quality', 'security'],
-    'Scrum Master': ['tasks', 'team'],
+    'PM': ['team'],
+    'BA': [],
+    'Developer': [],
+    'QA Tester': ['security'],
+    'QC': ['security'],
+    'Scrum Master': ['team'],
     'DevOps Engineer': ['deployments', 'security'],
-    'Product Owner': ['requirements', 'team'],
-    'admin': ['admin', 'team', 'quality', 'security']
+    'Product Owner': ['team'],
+    'admin': ['admin', 'team', 'security']
   };
 
   const allowedItems = [...baseItems, ...(roleSpecificItems[userRole] || [])];
 
-  // Calculate total unread messages
+  // Tính tổng số tin nhắn chưa đọc
   const totalUnreadCount = conversations.reduce((total, conv) => {
     return total + (conv.unreadCount || 0);
   }, 0);
@@ -76,7 +70,7 @@ const getMenuItemsForRole = (userRole, conversations) => {
 
     let icon = config.icon;
 
-    // Add badge for chats
+    // Thêm badge cho chats
     if (itemKey === 'chats' && totalUnreadCount > 0) {
       const badgeContent = totalUnreadCount > 99 ? '+99' : totalUnreadCount;
       icon = (
@@ -120,115 +114,111 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
 
   const menuItems = getMenuItemsForRole(user?.role, conversations);
 
-  const drawer = (
+const drawer = (
     <motion.div
       initial={{ x: -drawerWidth }}
       animate={{ x: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+      transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
-      <Toolbar sx={{ justifyContent: 'flex-start', py: 2, px: 3 }}>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <Box
-            component="img"
-            src={logo}
-            alt="Logo"
-            sx={{
-              height: 75,
-              width: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-              mx: 'auto',
-            }}
-          />
-        </motion.div>
+      <Toolbar sx={{ justifyContent: 'flex-start', py: 2, px: 2 }}>
+        <Box
+          component="img"
+          src={logo}
+          alt="Logo"
+          sx={{
+            height: 48,
+            width: 'auto',
+            objectFit: 'contain',
+            display: 'block',
+            mx: 'auto',
+          }}
+        />
       </Toolbar>
-      <Divider />
-      <List>
-        {menuItems.map((item, index) => (
-          <motion.div
-            key={item.text}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 * index, duration: 0.3 }}
-          >
-            <ListItem
-              button
-              onClick={() => navigate(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                margin: '0 10px',
-                width: `calc(100% - 20px)`,
-                boxSizing: 'border-box',
-                transition: 'all 0.2s ease-in-out',
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main,
-                  color: '#ffffff',
-                  '& .MuiListItemIcon-root': {
-                    color: '#ffffff',
-                    minWidth: '15px',
-                  },
-                  '& .MuiListItemText-primary': {
-                    color: '#ffffff',
-                  },
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
-                },
-                '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  transform: 'translateX(4px)',
-                },
-                '& .MuiListItemIcon-root': {
-                  marginRight: '8px',
-                  minWidth: '15px',
-                },
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItem>
-          </motion.div>
-        ))}
-      </List>
-      <Divider />
-      <List>
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5, duration: 0.3 }}
-        >
+      <Divider sx={{ mx: 2, my: 1 }} />
+      <List sx={{ px: 1 }}>
+        {menuItems.map((item) => (
           <ListItem
             button
-            onClick={handleLogout}
+            key={item.text}
+            onClick={() => navigate(item.path)}
+            selected={location.pathname === item.path}
             sx={{
-              padding: '12px 16px',
+              padding: '10px 16px',
               borderRadius: '8px',
-              margin: '0 10px',
-              width: `calc(100% - 20px)`,
+              margin: '2px 8px',
+              width: `calc(100% - 16px)`,
               boxSizing: 'border-box',
-              transition: 'all 0.2s ease-in-out',
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.primary.main,
+                color: '#ffffff',
+                '& .MuiListItemIcon-root': {
+                  color: '#ffffff',
+                },
+                '& .MuiListItemText-primary': {
+                  color: '#ffffff',
+                  fontWeight: 600,
+                },
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                },
+              },
               '&:hover': {
-                backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                transform: 'translateX(4px)',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
               },
               '& .MuiListItemIcon-root': {
-                marginRight: '8px',
+                marginRight: '12px',
                 minWidth: '15px',
               },
             }}
           >
-            <ListItemIcon>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Đăng xuất" />
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText
+              primary={item.text}
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontWeight: 500,
+                  fontSize: '0.9rem',
+                },
+              }}
+            />
           </ListItem>
-        </motion.div>
+        ))}
+      </List>
+      <Divider sx={{ mx: 2, my: 1 }} />
+      <List sx={{ px: 1 }}>
+        <ListItem
+          button
+          onClick={handleLogout}
+          sx={{
+            padding: '10px 16px',
+            borderRadius: '8px',
+            margin: '2px 8px',
+            width: `calc(100% - 16px)`,
+            boxSizing: 'border-box',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+            },
+            '& .MuiListItemIcon-root': {
+              marginRight: '12px',
+              minWidth: '15px',
+            },
+          }}
+        >
+          <ListItemIcon>
+            <LogoutIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary="Đăng xuất"
+            sx={{
+              '& .MuiListItemText-primary': {
+                fontWeight: 500,
+                fontSize: '0.9rem',
+              },
+            }}
+          />
+        </ListItem>
       </List>
     </motion.div>
   );

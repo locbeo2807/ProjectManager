@@ -1,7 +1,10 @@
-module.exports = async () => {
-  const mongoose = require('mongoose');
-  await mongoose.disconnect();
-  if (global.__MONGOSERVER__) {
-    await global.__MONGOSERVER__.stop();
+const { MongoMemoryServer } = require('mongodb-memory-server');
+
+let mongoServer;
+
+module.exports = async function globalTeardown() {
+  if (mongoServer) {
+    await mongoServer.stop();
+    console.log('In-memory MongoDB stopped');
   }
 };

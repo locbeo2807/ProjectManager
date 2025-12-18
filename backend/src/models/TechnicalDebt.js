@@ -133,7 +133,7 @@ TechnicalDebtSchema.pre('save', function(next) {
   next();
 });
 
-// Method to populate details
+// Method để populate details
 TechnicalDebtSchema.methods.populateDetails = function() {
   return this.populate([
     { path: 'project', select: 'name projectId' },

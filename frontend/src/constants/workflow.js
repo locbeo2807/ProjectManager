@@ -81,7 +81,7 @@ export const BUG_STATUS_FLOW = {
   }
 };
 
-// Trạng thái Workflow Kinh doanh - Quy trình xác thực BA
+// Trạng thái Workflow Kinh doanh - Quy trình xác thực BA và PO
 export const BUSINESS_WORKFLOW = {
   'baConfirmRequirement': {
     label: 'BA Confirm Requirements',
@@ -96,6 +96,11 @@ export const BUSINESS_WORKFLOW = {
   'baAcceptFeature': {
     label: 'BA Accept Feature',
     description: 'Business Analyst accepts the completed feature',
+    required: true
+  },
+  'poAcceptFeature': {
+    label: 'PO Final Acceptance',
+    description: 'Product Owner provides final acceptance of the completed feature',
     required: true
   }
 };
@@ -139,13 +144,12 @@ export const ROLE_PERMISSIONS = {
     // BA là người tạo module / sprint / task
     canCreateModule: true,
     canCreateRelease: true, // vẫn giữ để không phá code cũ, dù release ít dùng
-    canCreateEpic: true,
     canCreateTask: true,
     canReviewRequirements: true,
     canApproveUI: true,
     canAcceptFeatures: true,
     canViewAllProjects: true,
-    dashboardWidgets: ['requirements', 'epics', 'acceptanceCriteria', 'businessValue']
+    dashboardWidgets: ['requirements', 'acceptanceCriteria', 'myTasks']
   },
   'Developer': {
     canUpdateTaskStatus: true,
@@ -194,7 +198,7 @@ export const ROLE_PERMISSIONS = {
     canDefineRequirements: true,
     canCreateTask: false,
     canManageStakeholders: true,
-    dashboardWidgets: ['backlog', 'stakeholderFeedback', 'businessValue', 'roi']
+    dashboardWidgets: ['backlog', 'stakeholderFeedback', 'myTasks']
   }
 };
 
@@ -268,7 +272,8 @@ export const BUSINESS_RULES = {
     return task.taskType === 'Feature' && task.status === 'Hoàn thành' &&
            (!task.businessWorkflow?.baConfirmRequirement ||
             !task.businessWorkflow?.baApproveUI ||
-            !task.businessWorkflow?.baAcceptFeature);
+            !task.businessWorkflow?.baAcceptFeature ||
+            !task.businessWorkflow?.poAcceptFeature);
   },
 
   // Người review không thể giống với người được giao

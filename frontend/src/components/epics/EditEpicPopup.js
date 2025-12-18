@@ -24,6 +24,17 @@ const EditEpicPopup = ({ open, epic, onClose, onEpicUpdated }) => {
   const priorities = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'];
   const statuses = ['Hàng đợi', 'Đang làm', 'Hoàn thành'];
 
+  const fetchAvailableTasks = useCallback(async () => {
+    if (!epic?.project) return;
+
+    try {
+      const tasks = await taskService.getTasksByProject(epic.project);
+      setAvailableTasks(tasks);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    }
+  }, [epic?.project]);
+
   useEffect(() => {
     if (open && epic) {
       setFormData({
@@ -37,21 +48,10 @@ const EditEpicPopup = ({ open, epic, onClose, onEpicUpdated }) => {
       setSelectedTasks(epic.userStories || []);
       setErrors({});
 
-      // Fetch available tasks for this project
+      // Fetch available tasks cho project này
       fetchAvailableTasks();
     }
-  }, [open, epic]);
-
-  const fetchAvailableTasks = useCallback(async () => {
-    if (!epic?.project) return;
-
-    try {
-      const tasks = await taskService.getTasksByProject(epic.project);
-      setAvailableTasks(tasks);
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-    }
-  }, [epic?.project]);
+  }, [open, epic, fetchAvailableTasks]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

@@ -1,36 +1,23 @@
-// File thiết lập kiểm thử
-require('dotenv').config({ path: '.env.test' });
+const mongoose = require('mongoose');
 
-// Thiết lập môi trường kiểm thử
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret';
+beforeAll(async () => {
+  // Connect to the test database
+  await mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+});
 
-// Mock dịch vụ email cho kiểm thử
-jest.mock('../src/utils/email', () => ({
-  sendOTP: jest.fn().mockResolvedValue(true)
-}));
+afterAll(async () => {
+  // Disconnect from the test database
+  await mongoose.disconnect();
+});
 
-// Mock cloudinary cho kiểm thử
-jest.mock('../src/config/cloudinary', () => ({
-  uploader: {
-    destroy: jest.fn().mockResolvedValue({ result: 'ok' })
+afterEach(async () => {
+  // Clean up all collections after each test
+  const collections = mongoose.connection.collections;
+  for (const key in collections) {
+    const collection = collections[key];
+    await collection.deleteMany({});
   }
-}));
-
-// Mock bcryptjs for fast hashing in tests
-jest.mock('bcryptjs', () => ({
-  genSalt: jest.fn(() => Promise.resolve('salt')),
-  hash: jest.fn((password, salt) => Promise.resolve(`hashed_${password}`)),
-  compare: jest.fn((password, hash) => Promise.resolve(hash === `hashed_${password}`)),
-}));
-
-// Mock quản lý socket
-jest.mock('../src/socket', () => ({
-  sendNotification: jest.fn(),
-  broadcastToSprintRoom: jest.fn(),
-  broadcastToProjectRoom: jest.fn(),
-  getIO: jest.fn().mockReturnValue(null)
-}));
-
-// Thời gian chờ toàn cục cho kiểm thử
-jest.setTimeout(15000);
+});

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import DatePicker from '../common/DatePicker';
 import styles from './EditModulePopup.module.css';
 
 function formatDateInput(dateStr) {
@@ -27,7 +28,7 @@ const EditModulePopup = ({ open, onClose, module, onSubmit, usersList, errorMess
   const [startDate, setStartDate] = useState(formatDateInput(module?.startDate));
   const [endDate, setEndDate] = useState(formatDateInput(module?.endDate));
   const [description, setDescription] = useState(module?.description || '');
-  const [files, setFiles] = useState([]); // new files
+  const [files, setFiles] = useState([]); // files mới
   const [keepFiles, setKeepFiles] = useState(module?.docs?.map(f => f.publicId) || []);
   const fileInputRef = useRef();
 
@@ -56,10 +57,10 @@ const EditModulePopup = ({ open, onClose, module, onSubmit, usersList, errorMess
 
   if (!open) return null;
 
-  // Filter users based on search
+  // Filter users theo search
   const handleOwnerSearch = (searchTerm) => {
     setOwnerSearch(searchTerm);
-    setOwner(''); // reset owner khi gõ tay
+    setOwner(''); // reset owner khi gõ
     if (!searchTerm.trim()) {
       setFilteredUsers([]);
       setShowOwnerDropdown(false);
@@ -209,23 +210,19 @@ const EditModulePopup = ({ open, onClose, module, onSubmit, usersList, errorMess
               </div>
               <div className={styles.fieldGroup} style={{ position: 'relative' }}>
                 <label className={styles.label}>Ngày bắt đầu {requiredMark}</label>
-                <input
-                  className={errors.startDate ? `${styles.input} ${styles.inputError}` : styles.input}
-                  type="date"
-                  style={{ borderColor: errors.startDate ? '#dc3545' : '#ccc' }}
+                <DatePicker
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={(value) => setStartDate(value)}
+                  placeholder="Chọn ngày bắt đầu"
                 />
                 {errors.startDate && <div className={styles.errorTextInline}>{errors.startDate}</div>}
               </div>
               <div className={styles.fieldGroup} style={{ position: 'relative' }}>
                 <label className={styles.label}>Ngày kết thúc {requiredMark}</label>
-                <input
-                  className={errors.endDate ? `${styles.input} ${styles.inputError}` : styles.input}
-                  type="date"
-                  style={{ borderColor: errors.endDate ? '#dc3545' : '#ccc' }}
+                <DatePicker
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={(value) => setEndDate(value)}
+                  placeholder="Chọn ngày kết thúc"
                 />
                 {errors.endDate && <div className={styles.errorTextInline}>{errors.endDate}</div>}
               </div>
@@ -332,4 +329,4 @@ const EditModulePopup = ({ open, onClose, module, onSubmit, usersList, errorMess
 };
 
 
-export default EditModulePopup; 
+export default EditModulePopup;

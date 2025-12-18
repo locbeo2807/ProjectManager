@@ -209,6 +209,13 @@ const requirePermission = (resource, action, contextExtractor = null) => {
       const userRole = req.user.role;
       const userId = req.user._id.toString();
 
+      // Special case: Only allow PM to create projects
+      if (resource === 'Project' && action === 'create' && userRole !== 'PM') {
+        return res.status(403).json({
+          message: 'Chỉ PM mới có quyền tạo dự án mới.'
+        });
+      }
+
       // Trích xuất ngữ cảnh nếu được cung cấp
       let context = { userId };
       if (contextExtractor && typeof contextExtractor === 'function') {
@@ -217,7 +224,7 @@ const requirePermission = (resource, action, contextExtractor = null) => {
 
       if (!hasPermission(userRole, resource, action, context)) {
         return res.status(403).json({
-          message: `${userRole} cannot ${action} ${resource}`
+          message: `${userRole} không có quyền ${action} ${resource}`
         });
       }
 
@@ -225,7 +232,7 @@ const requirePermission = (resource, action, contextExtractor = null) => {
     } catch (error) {
       console.error('Permission check error:', error);
       return res.status(500).json({
-        message: 'Permission validation failed'
+        message: 'Lỗi xác thực quyền truy cập'
       });
     }
   };
@@ -254,6 +261,8 @@ const canAccessResource = (user, resource, action, resourceInstance) => {
     resourceOwner: resourceInstance.createdBy || resourceInstance.owner,
     taskAssignee: resourceInstance.assignee,
     taskReviewer: resourceInstance.reviewer,
+    taskAssignees: resourceInstance.assignees?.map(id => id.toString()),
+    taskReviewers: resourceInstance.reviewers?.map(id => id.toString()),
     sprintMembers: resourceInstance.members?.map(m => m.user?.toString()),
     projectMembers: resourceInstance.members?.map(m => m.user?.toString())
   };

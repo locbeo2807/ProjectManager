@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-function verifyToken(token, secret, options = {}) {
+function verifyToken(token) {
   try {
-    return jwt.verify(token, secret, options);
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     throw err;
   }

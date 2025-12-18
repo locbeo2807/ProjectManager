@@ -6,6 +6,11 @@ const UserService = {
     return response.data;
   },
 
+  searchUsers: async (query) => {
+    const response = await axiosInstance.get(`/users/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  },
+
   getAllEmails: async () => {
     const response = await axiosInstance.get('/users/emails');
     return response.data;
@@ -49,12 +54,12 @@ const UserService = {
   },
 
   enable2FA: async () => {
-    const response = await axiosInstance.post('/users/enable-2fa');
+    const response = await axiosInstance.post('/auth/enable-2fa');
     return response.data;
   },
 
   disable2FA: async () => {
-    const response = await axiosInstance.post('/users/disable-2fa');
+    const response = await axiosInstance.post('/auth/disable-2fa');
     return response.data;
   },
 

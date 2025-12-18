@@ -24,6 +24,7 @@ export const ChatProvider = ({ children }) => {
       const res = await getConversations();
       setConversations(res?.data || []);
     } catch (err) {
+      console.error('Failed to reload conversations:', err);
       setConversations([]);
     }
   }, []);
@@ -75,9 +76,11 @@ export const ChatProvider = ({ children }) => {
         .finally(() => setLoading(false));
       socketManager.joinChatRoom(currentConversation._id);
       socketManager.markAsRead(currentConversation._id);
-      // Chỉ reload 1 lần duy nhất sau khi bấm vào hội thoại
-      let timeout = setTimeout(() => { reloadConversations(); }, 1);
-      return () => clearTimeout(timeout);
+      // Debounce reload conversations để tránh race conditions
+      const reloadTimeout = setTimeout(() => {
+        reloadConversations();
+      }, 500);
+      return () => clearTimeout(reloadTimeout);
     }
   }, [currentConversation?._id, reloadConversations]);
 
@@ -89,13 +92,13 @@ export const ChatProvider = ({ children }) => {
 
   // Lắng nghe tin nhắn mới realtime (dùng ref để tránh stale closure)
   useEffect(() => {
-  if (!socketManager.socket) return;
+    if (!socketManager.socket || !socketManager.socket.connected) return;
   let reloadTimeout = null;
   const handleNewMessage = (msg) => {
       // Logic xử lý khi có tin nhắn mới
 if (
   currentConversationRef.current &&
-  String(msg.conversationId) === String(currentConversationRef.current._id) &&
+  msg.conversationId === currentConversationRef.current._id &&
   location.pathname.startsWith('/chats')
 ) {
         socketManager.markAsRead(msg.conversationId);
@@ -112,23 +115,38 @@ if (
         try {
           reloadConversationsRef.current();
         } catch (e) {
+          console.error('Error reloading conversations:', e);
         }
       }, 300);
     };
 
+    // Lắng nghe sự kiện messagesRead để cập nhật unreadCount local
+    const handleMessagesRead = (data) => {
+      const { conversationId, readerId } = data;
+      if (user && readerId === user._id) {
+        // Cập nhật unreadCount của conversation này về 0
+        setConversations(prevConversations =>
+          prevConversations.map(conv =>
+            conv._id === conversationId
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
+      }
+    };
+
     // Đăng ký listener khi component mount
     socketManager.on('newMessage', handleNewMessage);
+    socketManager.on('messagesRead', handleMessagesRead);
 
     // Hủy đăng ký khi component unmount
     return () => {
       socketManager.off('newMessage', handleNewMessage);
+      socketManager.off('messagesRead', handleMessagesRead);
       if (reloadTimeout) clearTimeout(reloadTimeout);
     };
-  }, [location.pathname]); // Đăng ký lại mỗi khi pathname thay đổi
+  }, [location.pathname, user]); // Đăng ký lại mỗi khi pathname hoặc user thay đổi
 
-  // Log khi conversations thay đổi (ảnh hưởng badge)
-  useEffect(() => {
-  }, [conversations]);
 
   return (
     <ChatContext.Provider value={{
@@ -141,4 +159,4 @@ if (
       {children}
     </ChatContext.Provider>
   );
-}; 
+};

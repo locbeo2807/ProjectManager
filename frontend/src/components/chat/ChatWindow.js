@@ -16,7 +16,7 @@ const formatTime = (dateStr) => {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// Generate a consistent color from a string (for avatar background)
+// Generate màu sắc nhất quán từ chuỗi (cho avatar background)
 const getColorFromString = (str) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -28,7 +28,7 @@ const getColorFromString = (str) => {
 
 const getInitial = (name) => name ? name.charAt(0).toUpperCase() : '?';
 
-// MessageAvatar: show avatar image if available, fallback to initial
+// MessageAvatar: hiển thị avatar nếu có, fallback sang chữ cái đầu
 const MessageAvatar = ({ name, avatarUrl }) => (
   avatarUrl ? (
     <img

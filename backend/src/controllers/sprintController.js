@@ -105,7 +105,28 @@ exports.createSprint = async (req, res, next) => {
       projectManagerId: moduleDoc.project?.projectManager?.toString() || null
     });
 
-    // (Optional) phát socket cho module/project nếu cần – hiện tại bỏ bớt cho đơn giản
+    // Phát socket event khi tạo sprint mới
+    try {
+      const io = socketManager.getIO ? socketManager.getIO() : socketManager.io;
+      if (io) {
+        // Lấy lại thông tin sprint đầy đủ với các trường đã populate
+        const newSprint = await Sprint.findById(sprint._id)
+          .populate('members.user', 'name email role')
+          .populate('history.fromUser', 'name email');
+
+        if (newSprint) {
+          // Phát sự kiện tạo sprint mới
+          io.to(`module:${moduleDoc._id}`).emit('sprintCreated', {
+            sprintId: sprint._id.toString(),
+            newSprint: newSprint.toObject(),
+            moduleId: moduleDoc._id.toString()
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Socket emit error (sprint creation):', err);
+    }
+
     res.status(201).json(sprint);
   } catch (error) {
     next(error);

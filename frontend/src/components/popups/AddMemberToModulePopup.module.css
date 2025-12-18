@@ -57,11 +57,13 @@
 .content {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 .searchSection {
   margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .searchContainer {
@@ -83,12 +85,19 @@
 }
 
 .searchResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   max-height: 200px;
   overflow-y: auto;
   border: 1px solid #ddd;
   border-radius: 6px;
-  margin-top: 8px;
+  margin-top: 4px;
   background: white;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-height: 50px;
 }
 
 .loadingText {
@@ -104,6 +113,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: white;
 }
 
 .userItem:hover {

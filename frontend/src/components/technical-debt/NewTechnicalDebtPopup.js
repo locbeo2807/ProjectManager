@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, FormControl, InputLabel, Select, MenuItem,
@@ -31,6 +31,24 @@ const NewTechnicalDebtPopup = ({ open, onClose, projectId, onDebtCreated }) => {
   const severities = ['Low', 'Medium', 'High', 'Critical'];
   const priorities = ['Low', 'Medium', 'High', 'Urgent'];
 
+  const fetchAvailableData = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      const [sprints, modules] = await Promise.all([
+        sprintService.getAllSprints(),
+        moduleService.getModulesByProject(projectId)
+      ]);
+
+      // Filter sprints theo project
+      const projectSprints = sprints.filter(sprint => sprint.project === projectId);
+      setAvailableSprints(projectSprints);
+      setAvailableModules(modules);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (open) {
       setFormData({
@@ -46,28 +64,10 @@ const NewTechnicalDebtPopup = ({ open, onClose, projectId, onDebtCreated }) => {
       });
       setErrors({});
 
-      // Fetch available sprints and modules
+      // Fetch available sprints và modules
       fetchAvailableData();
     }
-  }, [open, user._id]);
-
-  const fetchAvailableData = async () => {
-    if (!projectId) return;
-
-    try {
-      const [sprints, modules] = await Promise.all([
-        sprintService.getAllSprints(),
-        moduleService.getModulesByProject(projectId)
-      ]);
-
-      // Filter sprints by project
-      const projectSprints = sprints.filter(sprint => sprint.project === projectId);
-      setAvailableSprints(projectSprints);
-      setAvailableModules(modules);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    }
-  };
+  }, [open, user._id, fetchAvailableData]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

@@ -22,12 +22,52 @@ const loadSprint = async (req, res, next) => {
 // CRUD Sprint
 router.post('/', authenticate, requirePermission('Sprint', 'create'), upload.array('docs'), sprintController.createSprint);
 router.get('/', authenticate, requirePermission('Sprint', 'read'), sprintController.getSprints);
-router.get('/:id', authenticate, loadSprint, requirePermission('Sprint', 'read', (req) => ({
-  sprintMembers: req.sprint?.members?.map(m => m.user?.toString()) || []
-})), sprintController.getSprint);
+router.get(
+  '/:id',
+  authenticate,
+  loadSprint,
+  requirePermission('Sprint', 'read', async (req) => {
+    // Cho phép đọc sprint nếu user là thành viên sprint hoặc thành viên project chứa module của sprint
+    const sprintMembers = req.sprint?.members?.map(m => m.user?.toString()) || [];
+    let projectMembers = [];
+    try {
+      if (req.sprint?.module) {
+        const moduleDoc = await Module.findById(req.sprint.module).populate('project');
+        if (moduleDoc?.project?.members) {
+          projectMembers = moduleDoc.project.members.map(m => m.user?.toString());
+        }
+      }
+    } catch (e) {
+      // Ignore module/project load errors; permission util sẽ xử lý với context hiện có
+    }
+    return { sprintMembers, projectMembers };
+  }),
+  sprintController.getSprint
+);
+
 router.put('/:id', authenticate, loadSprint, requirePermission('Sprint', 'update', (req) => ({ sprintMembers: req.sprint?.members?.map(m => m.user?.toString()) })), upload.array('docs'), sprintController.updateSprint);
 router.delete('/:id', authenticate, loadSprint, requirePermission('Sprint', 'delete'), sprintController.deleteSprint);
-router.get('/:sprintId/files/:fileId(*)', authenticate, loadSprint, requirePermission('Sprint', 'read'), sprintController.downloadSprintFile);
+router.get(
+  '/:sprintId/files/:fileId(*)',
+  authenticate,
+  loadSprint,
+  requirePermission('Sprint', 'read', async (req) => {
+    // Dùng cùng logic với getSprint để đảm bảo chỉ member/project member mới tải file được
+    const sprintMembers = req.sprint?.members?.map(m => m.user?.toString()) || [];
+    let projectMembers = [];
+    try {
+      if (req.sprint?.module) {
+        const moduleDoc = await Module.findById(req.sprint.module).populate('project');
+        if (moduleDoc?.project?.members) {
+          projectMembers = moduleDoc.project.members.map(m => m.user?.toString());
+        }
+      }
+    } catch (e) {}
+    return { sprintMembers, projectMembers };
+  }),
+  sprintController.downloadSprintFile
+);
+
 router.delete('/:sprintId/files/:fileId', authenticate, loadSprint, requirePermission('Sprint', 'delete'), sprintController.deleteSprintFile);
 router.post('/:id/add-members', authenticate, loadSprint, requirePermission('Sprint', 'update', (req) => ({ sprintMembers: req.sprint?.members?.map(m => m.user?.toString()) })), sprintController.addMembersToSprint);
 

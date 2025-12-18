@@ -31,7 +31,7 @@ const Layout = ({ children }) => {
           flexGrow: 1,
           p: 0,
           width: { lg: `calc(100% - ${drawerWidth}px)` },
-          mt: '64px',
+          mt: '56px',
         }}
       >
         {children}
@@ -40,4 +40,4 @@ const Layout = ({ children }) => {
   );
 };
 
-export default Layout; 
+export default Layout;

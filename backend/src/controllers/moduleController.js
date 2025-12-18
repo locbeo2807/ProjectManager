@@ -10,8 +10,10 @@ const { formatVNDate } = require('../utils/dateFormatter');
 const { createWorkflowNotification } = require('../services/notificationService');
 
 // Thêm thành viên vào module
+
 exports.addMembersToModule = async (req, res, next) => {
   try {
+    
     const { members } = req.body;
     const moduleId = req.params.id;
 
@@ -22,21 +24,49 @@ exports.addMembersToModule = async (req, res, next) => {
     const module = await Module.findById(moduleId).populate('project');
     if (!module) return next(createError(404, 'Module not found'));
 
-    // Kiểm tra quyền - chỉ BA của project hoặc PM mới có thể thêm thành viên
-    if (req.user.role !== 'PM' && 
-        (req.user.role !== 'BA' || module.project?.projectManager?.toString() !== req.user._id.toString())) {
-      return next(createError(403, 'Chỉ BA phụ trách project hoặc PM mới có quyền thêm thành viên vào module.'));
+    // Kiểm tra quyền - chỉ PM hoặc BA của project mới có thể thêm thành viên
+    const currentUser = req.user;
+    const project = module.project;
+    
+    // Kiểm tra xem user có phải là PM của project không
+    const isProjectManager = project.projectManager && project.projectManager.toString() === currentUser._id.toString();
+    
+    // Kiểm tra xem user có phải là BA không
+    const isBA = currentUser.role === 'BA';
+    
+    // Kiểm tra xem user có là owner của module không (BA role)
+    const isModuleOwner = module.owner && module.owner.toString() === currentUser._id.toString();
+    
+    if (!isProjectManager && !isBA && !isModuleOwner) {
+      return next(createError(403, 'Bạn không có quyền thêm thành viên vào module này.'));
     }
 
     // Thêm thành viên mới
     const newMembers = [];
+    console.log('Processing members:', members);
+    console.log('Current module members:', module.members || []);
+    
+    // Đảm bảo module.members là mảng
+    if (!module.members) {
+      module.members = [];
+    }
+    
     for (const memberData of members) {
+      console.log('Processing member data:', memberData);
       const user = await User.findById(memberData.user);
-      if (!user) continue;
+      console.log('Found user:', user);
+      
+      if (!user) {
+        console.log('User not found, skipping');
+        continue;
+      }
 
       // Kiểm tra thành viên đã tồn tại chưa
       const existingMember = module.members.find(m => m.user.toString() === user._id.toString());
+      console.log('Existing member:', existingMember);
+      
       if (!existingMember) {
+        console.log('Adding new member to module');
         module.members.push({
           user: user._id,
           role: memberData.role || 'member',
@@ -44,6 +74,8 @@ exports.addMembersToModule = async (req, res, next) => {
           addedBy: req.user._id
         });
         newMembers.push(user);
+      } else {
+        console.log('User already exists in module');
       }
     }
 
@@ -54,9 +86,10 @@ exports.addMembersToModule = async (req, res, next) => {
     for (const user of newMembers) {
       await createWorkflowNotification('module_assigned', {
         moduleName: module.name,
-        refId: module._id.toString()
+        refId: module._id.toString(),
+        assignedByName: req.user.name
       }, {
-        assignedUserId: user._id.toString()
+        assigneeId: user._id.toString()
       });
     }
 
@@ -161,7 +194,8 @@ exports.createModule = async (req, res, next) => {
       await createWorkflowNotification('module_assigned', {
         moduleName: name,
         projectName: project.name,
-        refId: module._id.toString()
+        refId: module._id.toString(),
+        assignedByName: req.user.name
       }, {
         assigneeId: ownerUser._id.toString()
       });
@@ -177,7 +211,8 @@ exports.getModulesByProject = async (req, res, next) => {
   try {
     const { projectId } = req.params;
     const modules = await Module.find({ project: projectId })
-      .populate('owner', 'name email');
+      .populate('owner', 'name email')
+      .populate('members.user', 'name email role');
     res.json(modules);
   } catch (error) {
     next(error);
@@ -351,19 +386,29 @@ exports.updateModule = async (req, res, next) => {
       if (ownerUser.role !== 'BA') {
         return next(createError(400, 'Người phụ trách module phải là BA (Module Owner).'));
       }
-      
+
       const oldOwner = module.owner;
       module.owner = ownerUser._id;
-      
+
       const oldOwnerUser = await User.findById(oldOwner);
       const oldOwnerName = oldOwnerUser ? oldOwnerUser.name : 'không có';
-      
+
       module.history.push({
         action: 'cập nhật',
         fromUser: req.user._id,
         timestamp: now,
-        description: `đã thay đổi người phụ trách module "${name}" từ "${oldOwnerName}" thành "${ownerUser.name}"`,
+        description: `đã thay đổi người phụ trách module "${name || module.name}" từ "${oldOwnerName}" thành "${ownerUser.name}"`,
         isPrimary: true
+      });
+
+      // Gửi thông báo cho người phụ trách mới
+      await createWorkflowNotification('module_assigned', {
+        moduleName: name || module.name,
+        projectName: (await Project.findById(module.project)).name,
+        refId: module._id.toString(),
+        assignedByName: req.user.name
+      }, {
+        assigneeId: ownerUser._id.toString()
       });
     }
 

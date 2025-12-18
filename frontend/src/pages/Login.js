@@ -24,7 +24,7 @@ const Login = () => {
     password: '',
   });
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState('login'); // 'login' | 'otp'
+  const [step, setStep] = useState('login'); // 'login' | 'otp' - bước đăng nhập
   const [userId, setUserId] = useState(null);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, FormControl, InputLabel, Select, MenuItem,
@@ -27,6 +27,17 @@ const EditRiskPopup = ({ open, risk, onClose, onRiskUpdated }) => {
   const likelihoods = ['Low', 'Medium', 'High', 'Very High'];
   const statuses = ['Identified', 'Assessed', 'Mitigated', 'Closed'];
 
+  const fetchAvailableTasks = useCallback(async () => {
+    if (!risk?.project) return;
+
+    try {
+      const tasks = await taskService.getTasksByProject(risk.project);
+      setAvailableTasks(tasks);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    }
+  }, [risk?.project]);
+
   useEffect(() => {
     if (open && risk) {
       setFormData({
@@ -42,21 +53,10 @@ const EditRiskPopup = ({ open, risk, onClose, onRiskUpdated }) => {
       });
       setErrors({});
 
-      // Fetch available tasks for linking
+      // Fetch available tasks để linking
       fetchAvailableTasks();
     }
-  }, [open, risk]);
-
-  const fetchAvailableTasks = async () => {
-    if (!risk?.project) return;
-
-    try {
-      const tasks = await taskService.getTasksByProject(risk.project);
-      setAvailableTasks(tasks);
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-    }
-  };
+  }, [open, risk, fetchAvailableTasks]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

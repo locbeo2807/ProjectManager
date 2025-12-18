@@ -8,9 +8,9 @@ class SocketManager {
   connect(accessToken, onErrorCallback) {
     console.log('[SocketManager] connect() called');
 
-    // If there is already a socket instance that is connected or is in the process
-    // of connecting, do not create another one. This prevents duplicate sockets
-    // (which can cause duplicate event handlers and duplicated API calls).
+    // Nếu đã có socket instance đang kết nối hoặc đang trong quá trình kết nối,
+    // không tạo instance mới. Điều này ngăn chặn socket trùng lặp
+    // (có thể gây duplicate event handlers và API calls trùng lặp).
     if (this.socket && (this.socket.connected || this.socket.connecting)) {
       console.log('[SocketManager] socket already connected/connecting, skipping creation');
       return;
@@ -20,7 +20,7 @@ class SocketManager {
       auth: {
         token: accessToken,
       },
-      // Gentle reconnection settings to avoid aggressive reconnect storms
+      // Cài đặt kết nối lại nhẹ nhàng để tránh các kết nối lại quá mức
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
@@ -41,7 +41,7 @@ class SocketManager {
     });
     this.socket.on('notification', (data) => {
       console.log('🔔 Received notification:', data);
-      // Dispatch custom event for notification context
+      // Dispatch event tùy chỉnh cho notification context
       window.dispatchEvent(new CustomEvent('socket-notification', { detail: data }));
     });
 
@@ -93,7 +93,7 @@ class SocketManager {
     // Sprint events
     this.socket.on('sprint_started', (data) => {
       console.log('🏃 Sprint started:', data);
-      window.dispatchEvent(new CustomEvent('socket-notification', { 
+      window.dispatchEvent(new CustomEvent('socket-notification', {
         detail: {
           type: 'info',
           message: `Sprint "${data.sprintName}" đã bắt đầu`,
@@ -105,7 +105,7 @@ class SocketManager {
 
     this.socket.on('sprint_completed', (data) => {
       console.log('🏁 Sprint completed:', data);
-      window.dispatchEvent(new CustomEvent('socket-notification', { 
+      window.dispatchEvent(new CustomEvent('socket-notification', {
         detail: {
           type: 'milestone',
           message: `Sprint "${data.sprintName}" đã hoàn thành với velocity ${data.velocity}`,
@@ -115,10 +115,15 @@ class SocketManager {
       }));
     });
 
+    this.socket.on('sprintCreated', (data) => {
+      console.log('🆕 Sprint created:', data);
+      window.dispatchEvent(new CustomEvent('sprint-created', { detail: data }));
+    });
+
     // Project events
     this.socket.on('project_created', (data) => {
       console.log('🏗️ Project created:', data);
-      window.dispatchEvent(new CustomEvent('socket-notification', { 
+      window.dispatchEvent(new CustomEvent('socket-notification', {
         detail: {
           type: 'info',
           message: `Dự án mới "${data.projectName}" đã được tạo`,
@@ -128,9 +133,21 @@ class SocketManager {
       }));
     });
 
+    this.socket.on('project_assigned', (data) => {
+      console.log('👤 Project assigned:', data);
+      window.dispatchEvent(new CustomEvent('socket-notification', {
+        detail: {
+          type: 'task',
+          message: `Bạn đã được giao phụ trách dự án "${data.projectName}". Vui lòng phân tích yêu cầu và tạo modules.`,
+          title: 'Project Assigned',
+          data
+        }
+      }));
+    });
+
     this.socket.on('project_confirmed', (data) => {
       console.log('✅ Project confirmed:', data);
-      window.dispatchEvent(new CustomEvent('socket-notification', { 
+      window.dispatchEvent(new CustomEvent('socket-notification', {
         detail: {
           type: 'success',
           message: `Dự án "${data.projectName}" đã được phê duyệt`,
@@ -217,6 +234,20 @@ class SocketManager {
     if (this.socket) {
       this.socket.emit('leaveProjectRoom', projectId);
       console.log(`🏢 Left project room: ${projectId}`);
+    }
+  }
+
+  joinModuleRoom(moduleId) {
+    if (this.socket) {
+      this.socket.emit('joinModuleRoom', moduleId);
+      console.log(`📁 Joined module room: ${moduleId}`);
+    }
+  }
+
+  leaveModuleRoom(moduleId) {
+    if (this.socket) {
+      this.socket.emit('leaveModuleRoom', moduleId);
+      console.log(`📁 Left module room: ${moduleId}`);
     }
   }
 

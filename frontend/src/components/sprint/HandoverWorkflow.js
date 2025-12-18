@@ -30,8 +30,8 @@ const HandoverWorkflow = ({ sprint, onSprintUpdate, readOnly }) => {
 
   const fetchSprintTasks = useCallback(async () => {
     try {
-      const response = await TaskService.getTasksBySprint(sprint._id);
-      setTasks(response.data || []);
+      const sprintTasks = await TaskService.getSprintTasks(sprint._id);
+      setTasks(sprintTasks || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }

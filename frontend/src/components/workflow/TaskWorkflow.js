@@ -22,7 +22,9 @@ import {
   GetApp as DownloadIcon,
   Edit as EditIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon, Description as DescriptionIcon,
+  Cancel as CancelIcon,
+  Description as DescriptionIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import TaskService from '../../api/services/task.service';
@@ -32,6 +34,7 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
 
   const [files, setFiles] = useState([]);
   const [comment, setComment] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completionFiles, setCompletionFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -50,6 +53,17 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
       setFiles(prevFiles => [...prevFiles, ...Array.from(e.target.files)]);
     }
   };
+
+  const canReviewTask = useMemo(() => {
+    if (!internalTask || !user) return false;
+    if (internalTask.status !== 'Đang xem xét') return false;
+
+    const reviewers = internalTask.reviewers || [];
+    const isReviewer = Array.isArray(reviewers) && reviewers.some(r => r && (r._id === user._id));
+    const isPMOrBA = user.role === 'PM' || user.role === 'BA';
+
+    return isReviewer || isPMOrBA;
+  }, [internalTask, user]);
 
   const removeFile = (fileToRemove) => {
     setFiles(prevFiles => prevFiles.filter(file => file !== fileToRemove));
@@ -138,6 +152,34 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
     } catch (error) {
       console.error('Error downloading file:', error);
       setNotification({ open: true, message: 'Không thể tải xuống file.', severity: 'error' });
+    }
+  };
+
+  const handleReviewTask = async (result) => {
+    if (!internalTask || !internalTask._id) return;
+
+    setIsSubmitting(true);
+    try {
+      await TaskService.updateTaskReviewStatus(internalTask._id, {
+        reviewStatus: result,
+        comment: reviewComment,
+      });
+
+      const updatedTaskData = await TaskService.getTask(internalTask._id);
+      setInternalTask(updatedTaskData);
+      onTaskUpdate(updatedTaskData);
+
+      setNotification({
+        open: true,
+        message: `Đã cập nhật đánh giá thành "${result}"`,
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Error updating review status:', error);
+      const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật đánh giá.';
+      setNotification({ open: true, message: errorMessage, severity: 'error' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -261,6 +303,29 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
       }
     }
   };
+
+  const handlePOAcceptance = async (accepted) => {
+    if (!internalTask || !internalTask._id) return;
+
+    setIsSubmitting(true);
+    try {
+      const updatedTaskData = await TaskService.updatePOAcceptance(internalTask._id, accepted);
+      setInternalTask(updatedTaskData);
+      onTaskUpdate(updatedTaskData);
+
+      setNotification({
+        open: true,
+        message: accepted ? 'Đã chấp nhận tính năng thành công!' : 'Đã từ chối chấp nhận tính năng.',
+        severity: accepted ? 'success' : 'warning',
+      });
+    } catch (error) {
+      console.error('Error updating PO acceptance:', error);
+      const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật chấp nhận của Product Owner.';
+      setNotification({ open: true, message: errorMessage, severity: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const statusStyles = useMemo(() => ({
     'Chưa làm': { backgroundColor: '#e0e0e0', color: '#000' },
     'Đang làm': { backgroundColor: '#64b5f6', color: '#fff' },
@@ -268,7 +333,15 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
     'Đang review': { backgroundColor: '#ffb74d', color: '#000' },
   }), []);
 
-  const canCompleteTask = !readOnly && internalTask?.assignee?._id === user?._id && internalTask?.status === 'Đang làm';
+  // Cho phép hiển thị khối "Hoàn thành & Gửi Review" cho bất kỳ assignee nào khi task đang "Đang làm" và không ở chế độ readOnly
+  const canCompleteTask = useMemo(() => {
+    if (readOnly || !internalTask || !user) return false;
+
+    const assignees = internalTask.assignees || [];
+    const isAssignee = Array.isArray(assignees) && assignees.some(a => a && (a._id === user._id));
+
+    return isAssignee && internalTask.status === 'Đang làm';
+  }, [readOnly, internalTask, user]);
 
   const canDeleteTask = user?.role?.name === 'PM' || user?.role?.name === 'BA';
 
@@ -464,6 +537,108 @@ const TaskWorkflow = ({ task, onTaskUpdate, readOnly }) => {
                         ))}
                         </AnimatePresence>
                       </List>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Review Section for reviewers / PM / BA when task is in "Đang xem xét" */}
+            {canReviewTask && (
+              <motion.div variants={itemVariants}>
+                <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <RateReviewIcon sx={{ mr: 1, color: 'success.main' }} />
+                      <Typography variant="h6" fontWeight={600}>
+                        Đánh giá kết quả
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="Nhận xét (tùy chọn)..."
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      sx={{ mb: 2 }}
+                      variant="outlined"
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={() => handleReviewTask('Đạt')}
+                        disabled={isSubmitting}
+                        fullWidth
+                      >
+                        Đánh giá Đạt
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleReviewTask('Không đạt')}
+                        disabled={isSubmitting}
+                        fullWidth
+                      >
+                        Đánh giá Không đạt
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Product Owner Final Acceptance Section */}
+            {internalTask.taskType === 'Feature' && internalTask.status === 'Hoàn thành' && user?.role === 'Product Owner' && (
+              <motion.div variants={itemVariants}>
+                <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <CheckCircleIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography variant="h6" fontWeight={600}>
+                        Chấp nhận cuối cùng của Product Owner
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Là Product Owner, bạn cần đưa ra chấp nhận cuối cùng cho tính năng này trước khi nó được coi là hoàn thành đầy đủ.
+                    </Typography>
+
+                    {!internalTask.businessWorkflow?.poAcceptFeature ? (
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handlePOAcceptance(true)}
+                          disabled={isSubmitting}
+                          fullWidth
+                          startIcon={<CheckCircleIcon />}
+                        >
+                          Chấp nhận tính năng
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handlePOAcceptance(false)}
+                          disabled={isSubmitting}
+                          fullWidth
+                          startIcon={<ErrorIcon />}
+                        >
+                          Từ chối chấp nhận
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CheckCircleIcon sx={{ color: 'success.main' }} />
+                        <Typography variant="body1" color="success.main" fontWeight={600}>
+                          Đã chấp nhận bởi Product Owner
+                        </Typography>
+                      </Box>
                     )}
                   </CardContent>
                 </Card>

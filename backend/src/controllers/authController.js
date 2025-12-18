@@ -24,8 +24,7 @@ async function createAccessToken(user) {
   const options = { expiresIn: '1h' };
   if (process.env.JWT_AUDIENCE) options.audience = process.env.JWT_AUDIENCE;
   if (process.env.JWT_ISSUER) options.issuer = process.env.JWT_ISSUER;
-  const populatedUser = await user.populate('role');
-  const roleName = populatedUser.role?.name || 'Developer'; // Fallback role
+  const roleName = user.role || 'Developer'; // Use role directly from user object
   const payload = { _id: user._id, userID: user.userID, role: roleName };
   return jwt.sign(payload, process.env.JWT_SECRET, options);
 }
@@ -33,13 +32,12 @@ async function createRefreshToken(user) {
   const options = { expiresIn: '7d' };
   if (process.env.JWT_AUDIENCE) options.audience = process.env.JWT_AUDIENCE;
   if (process.env.JWT_ISSUER) options.issuer = process.env.JWT_ISSUER;
-  const populatedUser = await user.populate('role');
-  const roleName = populatedUser.role?.name || 'Developer'; // Fallback role
+  const roleName = user.role || 'Developer'; // Use role directly from user object
   const payload = { _id: user._id, userID: user.userID, role: roleName };
   return jwt.sign(payload, process.env.JWT_SECRET, options);
 }
 
-// Register new user - Updated for workflow compliance
+// Register new user - Updated to remove OTP requirement
 exports.register = catchAsync(async (req, res, next) => {
   const { name, email, password, role, phoneNumber, gender } = req.body;
 
@@ -51,30 +49,18 @@ exports.register = catchAsync(async (req, res, next) => {
   // Check if user already exists with active status
   const existingUser = await User.findOne({ email, status: 'hoạt động' });
   if (existingUser) {
-    return next(AppError('Email đã được đăng ký và kích hoạt', 400));
+    return next(AppError('Email đã được đăng ký', 400));
   }
 
-  // Check if user already exists with pending status (recent)
-  const recentPendingUser = await User.findOne({
-    email,
-    status: 'chờ xác thực',
-    createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Within 24 hours
-  });
-  if (recentPendingUser) {
-    return next(AppError('Email đã được đăng ký, vui lòng kiểm tra email để xác thực hoặc thử lại sau 24 giờ', 400));
-  }
-
-  // Clean up old pending users
+  // Clean up any pending users with same email
   const oldPendingUser = await User.findOne({ email, status: 'chờ xác thực' });
   if (oldPendingUser) {
     await User.findByIdAndDelete(oldPendingUser._id);
   }
 
-  // Generate OTP for workflow verification
+  // Create user with pending status
   const otp = generateOTP();
-  const otp_expired = new Date(Date.now() + 10 * 60 * 1000); // Extended to 10 minutes
-
-  // Create user with workflow-compliant defaults
+  const otp_expired = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   const user = new User({
     name: name.trim(),
     email: email.toLowerCase().trim(),
@@ -82,8 +68,8 @@ exports.register = catchAsync(async (req, res, next) => {
     role: role || 'Developer', // Default to 'Developer' for new users
     phoneNumber: phoneNumber?.trim(),
     gender,
-    status: 'chờ xác thực', // Workflow: Must verify email first
-    is_mfa_enabled: true, // Workflow: Security first
+    status: 'chờ xác thực', // Pending verification
+    is_mfa_enabled: true, // MFA is mandatory
     mfa_type: 'email',
     otp_code: otp,
     otp_expired: otp_expired,
@@ -92,24 +78,20 @@ exports.register = catchAsync(async (req, res, next) => {
 
   await user.save();
 
-  // Send OTP with workflow messaging
   try {
     await sendOTP(user.email, otp);
   } catch (emailError) {
-    console.error('Email sending failed:', emailError);
-    // Don't delete user, allow retry
-    return next(AppError('Không thể gửi email xác thực. Vui lòng liên hệ hỗ trợ.', 500));
+    console.error('OTP sending failed:', emailError);
+    return next(AppError('Không thể gửi mã xác thực. Vui lòng thử lại.', 500));
   }
 
   res.status(201).json({
-    message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực tài khoản.',
-    mfa: true,
+    message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.',
     userId: user._id,
-    nextStep: 'verify_otp'
   });
 });
 
-// Login user - Updated for workflow compliance
+// Login user - Check MFA status
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
@@ -126,7 +108,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
   // Check account status first
   if (user.status === 'chờ xác thực') {
-    return next(AppError('Tài khoản chưa được xác thực. Vui lòng kiểm tra email để xác thực tài khoản.', 403));
+    return next(AppError('Tài khoản chưa được xác thực. Vui lòng liên hệ quản trị viên.', 403));
   }
 
   if (user.status === 'bị khóa') {
@@ -139,10 +121,11 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(AppError('Email hoặc mật khẩu không đúng', 400));
   }
 
-  // Workflow: Always require MFA for security
+  // Check if MFA is enabled
   if (user.is_mfa_enabled && user.mfa_type === 'email') {
+    // Send OTP for MFA
     const otp = generateOTP();
-    const otp_expired = new Date(Date.now() + 10 * 60 * 1000); // Extended to 10 minutes
+    const otp_expired = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     user.otp_code = otp;
     user.otp_expired = otp_expired;
     user.otp_attempts = 0;
@@ -163,7 +146,7 @@ exports.login = catchAsync(async (req, res, next) => {
     });
   }
 
-  // Fallback for users without MFA (should not happen in workflow)
+  // Direct login without OTP
   const accessToken = await createAccessToken(user);
   const refreshToken = await createRefreshToken(user);
   const userResponse = user.toObject();
@@ -206,52 +189,86 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(AppError('Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.', 403));
   }
 
-  // Validate OTP requirements
-  if (!user.is_mfa_enabled || user.mfa_type !== 'email') {
-    return next(AppError('Tài khoản chưa được cấu hình xác thực 2 lớp', 400));
+  // For registration verification (pending users)
+  if (user.status === 'chờ xác thực') {
+    if (!user.otp_code || !user.otp_expired) {
+      return next(AppError('Mã OTP chưa được gửi hoặc đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
+    }
+
+    // Check OTP validity
+    if (user.otp_code !== otp.trim()) {
+      await handleOTPAttempts(user);
+      return next(AppError('Mã OTP không đúng', 400));
+    }
+
+    if (new Date() > user.otp_expired) {
+      await handleOTPAttempts(user);
+      return next(AppError('Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
+    }
+
+    // Activate account
+    user.status = 'hoạt động';
+    user.otp_code = null;
+    user.otp_expired = null;
+    user.otp_attempts = 0;
+    await user.save();
+    
+    const accessToken = await createAccessToken(user);
+    const refreshToken = await createRefreshToken(user);
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.otp_code;
+    delete userResponse.otp_expired;
+    delete userResponse.otp_attempts;
+
+    res.json({
+      message: 'Tài khoản đã được kích hoạt và đăng nhập thành công!',
+      accessToken,
+      refreshToken,
+      user: userResponse,
+    });
+  } 
+  // For login with MFA (active users with MFA enabled)
+  else if (user.is_mfa_enabled && user.mfa_type === 'email') {
+    if (!user.otp_code || !user.otp_expired) {
+      return next(AppError('Mã OTP chưa được gửi hoặc đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
+    }
+
+    // Check OTP validity
+    if (user.otp_code !== otp.trim()) {
+      await handleOTPAttempts(user);
+      return next(AppError('Mã OTP không đúng', 400));
+    }
+
+    if (new Date() > user.otp_expired) {
+      await handleOTPAttempts(user);
+      return next(AppError('Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
+    }
+
+    // Clear OTP and login
+    user.otp_code = null;
+    user.otp_expired = null;
+    user.otp_attempts = 0;
+    await user.save();
+    
+    const accessToken = await createAccessToken(user);
+    const refreshToken = await createRefreshToken(user);
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.otp_code;
+    delete userResponse.otp_expired;
+    delete userResponse.otp_attempts;
+
+    res.json({
+      message: 'Xác thực thành công và đăng nhập thành công!',
+      accessToken,
+      refreshToken,
+      user: userResponse,
+    });
   }
-
-  if (!user.otp_code || !user.otp_expired) {
-    return next(AppError('Mã OTP chưa được gửi hoặc đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
+  else {
+    return next(AppError(400, 'Yêu cầu không hợp lệ'));
   }
-
-  // Check OTP validity
-  if (user.otp_code !== otp.trim()) {
-    await handleOTPAttempts(user);
-    return next(AppError('Mã OTP không đúng', 400));
-  }
-
-  if (new Date() > user.otp_expired) {
-    await handleOTPAttempts(user);
-    return next(AppError('Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại.', 400));
-  }
-
-  // Workflow: Successful verification
-  const wasPending = user.status === 'chờ xác thực';
-  user.status = wasPending ? 'hoạt động' : user.status; // Activate if pending
-  user.otp_code = null;
-  user.otp_expired = null;
-  user.otp_attempts = 0;
-  await user.save();
-  
-  const accessToken = await createAccessToken(user);
-  const refreshToken = await createRefreshToken(user);
-  const userResponse = user.toObject();
-  delete userResponse.password;
-  delete userResponse.otp_code;
-  delete userResponse.otp_expired;
-  delete userResponse.otp_attempts;
-
-  const successMessage = user.status === 'hoạt động' && wasPending ?
-    'Tài khoản đã được kích hoạt và đăng nhập thành công!' :
-    'Xác thực thành công và đăng nhập thành công!';
-
-  res.json({
-    message: successMessage,
-    accessToken,
-    refreshToken,
-    user: userResponse,
-  });
 });
 
 // Bật 2FA

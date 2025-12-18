@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Card, CardContent, Typography, Button, Chip, LinearProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  Box, Card, CardContent, Typography, Button, Chip,
   IconButton, Menu, MenuItem, Grid, Avatar
 } from '@mui/material';
 import {
-  Add, MoreVert, Warning, TrendingUp, Person, Flag
+  Add, MoreVert, Warning, TrendingUp, Person
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { riskService } from '../../api/services/risk.service';
@@ -24,13 +23,9 @@ const RiskList = ({ projectId }) => {
 
   const userPermissions = ROLE_PERMISSIONS[user.role] || {};
   const canCreateRisk = userPermissions.canCreateRisks;
-  const canUpdateRisk = userPermissions.canCreateRisks; // Same permission for update
+  const canUpdateRisk = userPermissions.canCreateRisks; // Cùng quyền cho update
 
-  useEffect(() => {
-    fetchRisks();
-  }, [projectId]);
-
-  const fetchRisks = async () => {
+  const fetchRisks = useCallback(async () => {
     try {
       setLoading(true);
       const data = await riskService.getRisksByProject(projectId);
@@ -40,7 +35,11 @@ const RiskList = ({ projectId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchRisks();
+  }, [fetchRisks]);
 
   const handleMenuOpen = (event, risk) => {
     setAnchorEl(event.currentTarget);

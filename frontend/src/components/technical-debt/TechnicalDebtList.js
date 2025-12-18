@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Card, CardContent, Typography, Button, Chip, LinearProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  Box, Card, CardContent, Typography, Button, Chip,
   IconButton, Menu, MenuItem, Grid, Avatar
 } from '@mui/material';
 import {
-  Add, MoreVert, Code, Timeline, Person, Flag
+  Add, MoreVert, Code, Timeline, Person
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { technicalDebtService } from '../../api/services/technicalDebt.service';
@@ -24,13 +23,9 @@ const TechnicalDebtList = ({ projectId }) => {
 
   const userPermissions = ROLE_PERMISSIONS[user.role] || {};
   const canCreateDebt = userPermissions.canCreateTechnicalDebts;
-  const canUpdateDebt = userPermissions.canCreateTechnicalDebts; // Same permission for update
+  const canUpdateDebt = userPermissions.canCreateTechnicalDebts; // Cùng quyền cho update
 
-  useEffect(() => {
-    fetchDebts();
-  }, [projectId]);
-
-  const fetchDebts = async () => {
+  const fetchDebts = useCallback(async () => {
     try {
       setLoading(true);
       const data = await technicalDebtService.getTechnicalDebtsByProject(projectId);
@@ -40,7 +35,11 @@ const TechnicalDebtList = ({ projectId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchDebts();
+  }, [fetchDebts]);
 
   const handleMenuOpen = (event, debt) => {
     setAnchorEl(event.currentTarget);

@@ -37,7 +37,7 @@ export const NotificationContainer = () => {
                 <p>Không có thông báo mới</p>
               </div>
             ) : (
-              notifications.map(notification => (
+              notifications.slice(0, 5).map(notification => (
                 <div key={notification._id} className="notification-item">
                   <div className="notification-content">
                     <div className="notification-icon">

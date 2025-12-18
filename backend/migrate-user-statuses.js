@@ -1,5 +1,5 @@
-// Migration Script to Fix User Statuses
-// This script updates existing users with English status values to Vietnamese values.
+// Migration Script để sửa User Statuses
+// Script này cập nhật các user có status tiếng Anh thành giá trị tiếng Việt.
 
 const mongoose = require('mongoose');
 const User = require('./src/models/User');
@@ -15,19 +15,19 @@ async function migrateUserStatuses() {
 
     console.log('📡 Connected to MongoDB');
 
-    // Define status mappings from English to Vietnamese
+    // Định nghĩa mapping status từ tiếng Anh sang tiếng Việt
     const statusMappings = {
       'active': 'hoạt động',
       'pending': 'chờ xác thực',
       'locked': 'bị khóa'
     };
 
-    // Get all English statuses to search for
+    // Lấy tất cả statuses tiếng Anh để tìm kiếm
     const englishStatuses = Object.keys(statusMappings);
 
     console.log('🔍 Finding users with English statuses...');
 
-    // Find users with statuses that need to be updated
+    // Tìm users có statuses cần cập nhật
     const usersToUpdate = await User.find({
       status: { $in: englishStatuses }
     });
@@ -39,7 +39,7 @@ async function migrateUserStatuses() {
       return;
     }
 
-    // Update each user
+    // Cập nhật từng user
     let updatedCount = 0;
     for (const user of usersToUpdate) {
       const newStatus = statusMappings[user.status];
@@ -76,7 +76,7 @@ console.log('- .env file with MONGODB_URI');
 console.log('- Backend dependencies installed');
 console.log('');
 
-// Run migration if called directly
+// Chạy migration nếu được gọi trực tiếp
 if (require.main === module) {
   migrateUserStatuses();
 }

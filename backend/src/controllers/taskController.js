@@ -8,7 +8,7 @@ const Notification = require('../models/Notification');
 const socketManager = require('../socket');
 const { createError: AppError } = require('../utils/error');
 const catchAsync = require('../utils/catchAsync');
-const { createNotification } = require('../services/notificationService');
+const { createNotification, createWorkflowNotification } = require('../services/notificationService');
 const { handleTaskStatusChange } = require('../services/progressService');
 const cloudinary = require('../config/cloudinary');
 const axios = require('axios');
@@ -20,18 +20,34 @@ async function updateStatusAfterTaskChange(sprintId) {
     const sprint = await Sprint.findById(sprintId);
     if (!sprint) return;
     
+    // Đảm bảo query tasks sau khi sprint đã được cập nhật với task mới
     const tasks = await Task.find({ sprint: sprint._id });
+    console.log('updateStatusAfterTaskChange: found tasks', { 
+      sprintId: sprint._id.toString(), 
+      taskCount: tasks.length,
+      taskIds: tasks.map(t => t.taskId)
+    });
+    
     // Mapping trạng thái Sprint
     let sprintStatus = 'Chưa bắt đầu';
-    if (tasks.length === 0 || tasks.every(t => t.status === 'Chưa làm')) {
-      sprintStatus = 'Chưa bắt đầu';
-    } else if (tasks.some(t => t.status === 'Đang làm' || t.status === 'Hoàn thành')) {
+    
+    // Nếu có ít nhất 1 task, chuyển sang trạng thái "Đang thực hiện"
+    if (tasks.length > 0) {
       sprintStatus = 'Đang thực hiện';
+      
+      // Nếu tất cả task đều đã được review "Đạt" thì chuyển sang trạng thái "Hoàn thành"
+      if (tasks.every(t => t.reviewStatus === 'Đạt')) {
+        sprintStatus = 'Hoàn thành';
+      }
     }
-    // Sprint chỉ hoàn thành khi TẤT CẢ task đều được review "Đạt"
-    if (tasks.length > 0 && tasks.every(t => t.reviewStatus === 'Đạt')) {
-      sprintStatus = 'Hoàn thành';
-    }
+    
+    console.log('updateStatusAfterTaskChange: updating sprint status', {
+      sprintId: sprint._id.toString(),
+      oldStatus: sprint.status,
+      newStatus: sprintStatus,
+      taskCount: tasks.length
+    });
+    
     sprint.status = sprintStatus;
     await sprint.save();
     
@@ -64,6 +80,34 @@ async function updateStatusAfterTaskChange(sprintId) {
   }
 }
 
+// Helper: tự động chuyển task từ "Chưa làm" sang "Đang làm" khi đã tới ngày bắt đầu
+async function autoStartTaskIfNeeded(task, userForHistory = null) {
+  try {
+    if (!task) return task;
+    if (task.status !== 'Chưa làm') return task;
+    if (!task.startDate) return task;
+
+    const now = new Date();
+    const start = new Date(task.startDate);
+    // Nếu hôm nay đã bằng hoặc sau ngày bắt đầu thì tự chuyển sang Đang làm
+    if (!isNaN(start.getTime()) && now >= start) {
+      task.status = 'Đang làm';
+      task.history = task.history || [];
+      task.history.push({
+        action: 'tự động cập nhật',
+        fromUser: userForHistory?._id || null,
+        timestamp: new Date(),
+        description: `hệ thống tự động chuyển trạng thái task "${task.name}" từ "Chưa làm" sang "Đang làm" vì đã đến ngày bắt đầu`,
+        isPrimary: true
+      });
+      await task.save();
+    }
+  } catch (err) {
+    console.error('autoStartTaskIfNeeded error:', err);
+  }
+  return task;
+}
+
 // Tạo task mới
 exports.createTask = catchAsync(async (req, res, next) => {
   // Debug logs to help trace 500 errors during creation
@@ -75,22 +119,94 @@ exports.createTask = catchAsync(async (req, res, next) => {
     return next(AppError(403, `Role "${req.user?.role || 'Unknown'}" không có quyền tạo task. Chỉ PM, BA, QA Tester, Scrum Master và Product Owner mới có quyền này.`));
   }
 
-  const { taskId, name, goal, assignee, reviewer, sprint, startDate, taskEndDate } = req.body;
+  const { 
+    taskId, 
+    name, 
+    goal, 
+    taskType, 
+    priority, 
+    assignees, 
+    reviewers, 
+    sprint, 
+    startDate, 
+    taskEndDate, 
+    deadline, 
+    description, 
+    acceptanceCriteria, 
+    storyPoints, 
+    estimatedHours 
+  } = req.body;
   
   // Validate required fields
-  if (!taskId || !name || !assignee || !reviewer || !sprint) {
-    return next(AppError(400, 'Thiếu thông tin bắt buộc: taskId, name, assignee, reviewer, sprint'));
+  if (!taskId || !name || !assignees || !reviewers || !sprint) {
+    return next(AppError(400, 'Thiếu thông tin bắt buộc: taskId, name, assignees, reviewers, sprint'));
+  }
+
+  // Validate that assignees and reviewers are non-empty arrays
+  if (!Array.isArray(assignees) || assignees.length === 0) {
+    return next(AppError(400, 'Phải có ít nhất một người thực hiện (assignees)'));
+  }
+  if (!Array.isArray(reviewers) || reviewers.length === 0) {
+    return next(AppError(400, 'Phải có ít nhất một người đánh giá (reviewers)'));
   }
   
   // Validate ObjectId format
   if (!mongoose.Types.ObjectId.isValid(sprint)) {
     return next(AppError(400, 'Sprint ID không hợp lệ'));
   }
-  if (!mongoose.Types.ObjectId.isValid(assignee)) {
-    return next(AppError(400, 'Assignee ID không hợp lệ'));
+  
+  // Validate assignees array
+  const assigneeIds = Array.isArray(assignees) ? assignees : [assignees];
+  for (const assigneeId of assigneeIds) {
+    if (!mongoose.Types.ObjectId.isValid(assigneeId)) {
+      return next(AppError(400, 'Assignee ID không hợp lệ'));
+    }
   }
-  if (!mongoose.Types.ObjectId.isValid(reviewer)) {
-    return next(AppError(400, 'Reviewer ID không hợp lệ'));
+  
+  // Validate reviewers array
+  const reviewerIds = Array.isArray(reviewers) ? reviewers : [reviewers];
+  for (const reviewerId of reviewerIds) {
+    if (!mongoose.Types.ObjectId.isValid(reviewerId)) {
+      return next(AppError(400, 'Reviewer ID không hợp lệ'));
+    }
+  }
+
+  // Validate assignee and reviewer roles
+  const assigneeUsers = await User.find({ _id: { $in: assigneeIds } });
+  const reviewerUsers = await User.find({ _id: { $in: reviewerIds } });
+
+  // Check if all assignees exist
+  if (assigneeUsers.length !== assigneeIds.length) {
+    return next(AppError(400, 'Một hoặc nhiều người thực hiện không tồn tại'));
+  }
+
+  // Check if all reviewers exist
+  if (reviewerUsers.length !== reviewerIds.length) {
+    return next(AppError(400, 'Một hoặc nhiều người đánh giá không tồn tại'));
+  }
+
+  // Validate assignee roles (should be able to perform tasks)
+  const validAssigneeRoles = ['Developer', 'QA Tester', 'DevOps Engineer'];
+  const invalidAssignees = assigneeUsers.filter(user => !validAssigneeRoles.includes(user.role));
+  if (invalidAssignees.length > 0) {
+    const invalidNames = invalidAssignees.map(u => `${u.name} (${u.role})`).join(', ');
+    return next(AppError(400, `Người thực hiện phải có vai trò: ${validAssigneeRoles.join(', ')}. Người dùng không hợp lệ: ${invalidNames}`));
+  }
+
+  // Validate reviewer roles (should be able to review tasks)
+  const validReviewerRoles = ['BA', 'PM', 'Scrum Master', 'Product Owner'];
+  const invalidReviewers = reviewerUsers.filter(user => !validReviewerRoles.includes(user.role));
+  if (invalidReviewers.length > 0) {
+    const invalidNames = invalidReviewers.map(u => `${u.name} (${u.role})`).join(', ');
+    return next(AppError(400, `Người đánh giá phải có vai trò: ${validReviewerRoles.join(', ')}. Người dùng không hợp lệ: ${invalidNames}`));
+  }
+
+  // Không cho phép một user vừa là assignee vừa là reviewer trong cùng một task
+  const overlappingIds = assigneeIds.filter(id => reviewerIds.map(r => r.toString()).includes(id.toString()));
+  if (overlappingIds.length > 0) {
+    const overlappingUsers = await User.find({ _id: { $in: overlappingIds } }).select('name role');
+    const overlappingNames = overlappingUsers.map(u => `${u.name} (${u.role})`).join(', ');
+    return next(AppError(400, `Một người không thể vừa là người thực hiện (assignee) vừa là người đánh giá (reviewer): ${overlappingNames}`));
   }
   
   const sprintDoc = await Sprint.findById(sprint).populate({
@@ -143,15 +259,22 @@ exports.createTask = catchAsync(async (req, res, next) => {
     taskId: taskId.trim(),
     name: name.trim(),
     goal: goal ? goal.trim() : '',
+    taskType: taskType || 'Feature',
+    priority: priority || 'Trung bình',
     createdBy: req.user._id,
-    assignee,
-    reviewer,
+    assignees: assigneeIds,
+    reviewers: reviewerIds,
     sprint: sprintDoc._id,
     project: sprintDoc.module.project._id,
     status: 'Chưa làm',
     reviewStatus: 'Chưa',
     startDate: processedStartDate,
     endDate: processedEndDate,
+    deadline: deadline ? new Date(deadline) : null,
+    description: description ? description.trim() : '',
+    acceptanceCriteria: acceptanceCriteria || [],
+    storyPoints: storyPoints || 0,
+    estimatedHours: estimatedHours || 0,
     docs,
     history: [{
       action: 'tạo task',
@@ -185,6 +308,9 @@ exports.createTask = catchAsync(async (req, res, next) => {
   });
   await sprintDoc.save();
   console.log('createTask: sprintDoc saved after push', { sprintId: sprintDoc._id.toString() });
+  
+  // Đảm bảo task đã được lưu vào database trước khi cập nhật status
+  await new Promise(resolve => setTimeout(resolve, 100));
   await updateStatusAfterTaskChange(sprintDoc._id);
 
   // Phát sự kiện tạo mới task kèm thông tin sprint đã cập nhật
@@ -201,9 +327,9 @@ exports.createTask = catchAsync(async (req, res, next) => {
 
   // Lấy thông tin cần thiết cho notification
   let populatedTask = await Task.findById(task._id)
-    .populate('assignee', 'name email')
-    .populate('reviewer', 'name email');
-  console.log('createTask: populatedTask loaded', { populatedAssignee: !!populatedTask.assignee, populatedReviewer: !!populatedTask.reviewer });
+    .populate('assignees', 'name email')
+    .populate('reviewers', 'name email');
+  console.log('createTask: populatedTask loaded', { populatedAssignees: !!populatedTask.assignees, populatedReviewers: !!populatedTask.reviewers });
 
   const sprintWithModule = await Sprint.findById(sprintDoc._id)
     .populate({
@@ -241,72 +367,49 @@ exports.createTask = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Notification cho assignee
-  if (populatedTask.assignee) {
-    try {
-      const assigneeMessage = `Bạn được phân công thực hiện task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}". Hạn chót: ${formattedEndDate}.`;
-      const notification = await Notification.create({
-        user: populatedTask.assignee._id,
-        type: 'task_assigned',
-        refId: task._id.toString(),
-        message: assigneeMessage
-      });
-      try { socketManager.sendNotification(populatedTask.assignee._id, notification); } catch (err) { console.error('sendNotification assignee error', err); }
-    } catch (err) {
-      console.error('createTask: failed to create assignee notification', err);
+  // Notification cho assignees
+  if (populatedTask.assignees && populatedTask.assignees.length > 0) {
+    for (const assignee of populatedTask.assignees) {
+      try {
+        await createWorkflowNotification('task_assigned', {
+          taskName: task.name,
+          taskId: task.taskId,
+          assignerName: req.user.name,
+          sprintName: sprintWithModule.name,
+          projectName: projectName,
+          refId: task._id.toString()
+        }, {
+          assigneeId: assignee._id
+        });
+      } catch (err) {
+        console.error('createTask: failed to create assignee notification', err);
+      }
     }
   }
 
-  // Notification cho reviewer
-  if (populatedTask.reviewer) {
-    try {
-      const reviewerMessage = `Bạn được phân công đánh giá kết quả task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}". Hạn chót: ${formattedEndDate}.`;
-      const notification = await Notification.create({
-        user: populatedTask.reviewer._id,
-        type: 'task_review_assigned',
-        refId: task._id.toString(),
-        message: reviewerMessage
-      });
-      try { socketManager.sendNotification(populatedTask.reviewer._id, notification); } catch (err) { console.error('sendNotification reviewer error', err); }
-    } catch (err) {
-      console.error('createTask: failed to create reviewer notification', err);
+  // Notification cho reviewers
+  if (populatedTask.reviewers && populatedTask.reviewers.length > 0) {
+    for (const reviewer of populatedTask.reviewers) {
+      try {
+        await createWorkflowNotification('task_review_assigned', {
+          taskName: task.name,
+          taskId: task.taskId,
+          sprintName: sprintWithModule.name,
+          projectName: projectName,
+          refId: task._id.toString()
+        }, {
+          reviewerId: reviewer._id
+        });
+      } catch (err) {
+        console.error('createTask: failed to create reviewer notification', err);
+      }
     }
   }
 
-  // Gửi notification cho tất cả DEV và BA về task mới (không phải assignee/reviewer)
-  const excludedIds = [];
-  if (populatedTask.assignee) excludedIds.push(populatedTask.assignee._id);
-  if (populatedTask.reviewer) excludedIds.push(populatedTask.reviewer._id);
-
-  const query = { role: { $in: ['Developer', 'BA'] } };
-  if (excludedIds.length > 0) {
-    query._id = { $nin: excludedIds };
-  }
-  const otherUsers = await User.find(query);
-  console.log('createTask: otherUsers count', { count: otherUsers.length });
-
-  const assigneeName = populatedTask.assignee ? populatedTask.assignee.name : 'Chưa có';
-  const reviewerName = populatedTask.reviewer ? populatedTask.reviewer.name : 'Chưa có';
-  const taskCreatedMessage = `Task mới "${task.name}" đã được tạo trong sprint "${sprintWithModule.name}". Assignee: ${assigneeName}, Reviewer: ${reviewerName}.`; // sprintWithModule.name nên luôn có
-
-  // Gửi cho các user khác
-  for (const user of otherUsers) {
-    try {
-      const notification = await Notification.create({
-        user: user._id,
-        type: 'task_created',
-        refId: task._id.toString(),
-        message: taskCreatedMessage
-      });
-      try { socketManager.sendNotification(user._id, notification); } catch (err) { console.error('sendNotification otherUsers error', err); }
-    } catch (err) {
-      console.error('createTask: failed to create notification for user', { user: user._id, err: err.message || err });
-    }
-  }
   // Populate task đầy đủ trước khi trả về để frontend có đầy đủ thông tin
   populatedTask = await Task.findById(task._id)
-    .populate('assignee', 'name email')
-    .populate('reviewer', 'name email')
+    .populate('assignees', 'name email')
+    .populate('reviewers', 'name email')
     .populate('createdBy', 'name email')
     .populate('sprint', 'name')
     .populate('project', 'name');
@@ -318,45 +421,144 @@ exports.createTask = catchAsync(async (req, res, next) => {
 // Lấy danh sách task theo sprint
 exports.getTasksBySprint = catchAsync(async (req, res, next) => {
   const { sprintId } = req.params;
-  const tasks = await Task.find({ sprint: sprintId })
-    .populate('assignee', 'name email')
-    .populate('reviewer', 'name email')
+  let tasks = await Task.find({ sprint: sprintId })
+    .populate('assignees', 'name email')
+    .populate('reviewers', 'name email')
     .populate('createdBy', 'name email');
-  res.json(tasks);
+
+  // Tự động chuyển các task đã tới ngày bắt đầu sang Đang làm
+  const updatedTasks = [];
+  for (const t of tasks) {
+    const updated = await autoStartTaskIfNeeded(t, req.user);
+    updatedTasks.push(updated);
+  }
+
+  res.json(updatedTasks);
 });
 
 // Lấy chi tiết task
 exports.getTask = catchAsync(async (req, res, next) => {
-  const task = await Task.findById(req.params.id)
-    .populate('assignee', 'name email avatar')
-    .populate('reviewer', 'name email avatar')
+  let task = await Task.findById(req.params.id)
+    .populate('assignees', 'name email avatar')
+    .populate('reviewers', 'name email avatar')
     .populate('sprint', 'name'); // Thêm populate cho sprint
   if (!task) return next(AppError(404, 'Task not found'));
+
+  // Tự động chuyển sang Đang làm nếu đã tới ngày bắt đầu
+  task = await autoStartTaskIfNeeded(task, req.user);
+
   res.json(task);
 });
 
 // Cập nhật task
 exports.updateTask = catchAsync(async (req, res, next) => {
-  const { name, goal, assignee, reviewer, priority, estimatedHours, keepFiles, businessWorkflow, startDate, endDate, handoverComment, fromUser } = req.body;
+  const { name, goal, assignees, reviewers, priority, estimatedHours, keepFiles, businessWorkflow, startDate, endDate, handoverComment, fromUser } = req.body;
   const task = req.task; // Sử dụng task đã được load từ middleware 'loadTask'
   if (!task) return next(AppError(404, 'Task not found'));
-  
+
   const oldValue = {
     name: task.name,
     goal: task.goal,
-    assignee: task.assignee,
-    reviewer: task.reviewer,
+    assignees: task.assignees,
+    reviewers: task.reviewers,
     priority: task.priority,
     estimatedHours: task.estimatedHours
   };
 
-  // Check if this is a handover operation
-  const isHandover = (assignee && assignee !== task.assignee?.toString()) || 
-                    (reviewer && reviewer !== task.reviewer?.toString());
+  // Validate assignees array if provided
+  let validatedAssignees = task.assignees;
+  if (assignees !== undefined) {
+    if (!Array.isArray(assignees)) {
+      return next(AppError(400, 'Assignees phải là một mảng'));
+    }
+    if (assignees.length === 0) {
+      return next(AppError(400, 'Phải có ít nhất một người thực hiện'));
+    }
+    // Validate ObjectId format
+    for (const assigneeId of assignees) {
+      if (!mongoose.Types.ObjectId.isValid(assigneeId)) {
+        return next(AppError(400, 'Assignee ID không hợp lệ'));
+      }
+    }
+    validatedAssignees = assignees;
+  }
 
-  // Store original assignee for notification
-  const originalAssignee = task.assignee;
-  const originalReviewer = task.reviewer;
+  // Validate reviewers array if provided
+  let validatedReviewers = task.reviewers;
+  if (reviewers !== undefined) {
+    if (!Array.isArray(reviewers)) {
+      return next(AppError(400, 'Reviewers phải là một mảng'));
+    }
+    if (reviewers.length === 0) {
+      return next(AppError(400, 'Phải có ít nhất một người đánh giá'));
+    }
+    // Validate ObjectId format
+    for (const reviewerId of reviewers) {
+      if (!mongoose.Types.ObjectId.isValid(reviewerId)) {
+        return next(AppError(400, 'Reviewer ID không hợp lệ'));
+      }
+    }
+    validatedReviewers = reviewers;
+  }
+
+  // Validate assignee and reviewer roles if they are being updated
+  if (assignees !== undefined || reviewers !== undefined) {
+    const assigneesToValidate = assignees !== undefined ? validatedAssignees : task.assignees;
+    const reviewersToValidate = reviewers !== undefined ? validatedReviewers : task.reviewers;
+
+    const assigneeUsers = assigneesToValidate && assigneesToValidate.length > 0
+      ? await User.find({ _id: { $in: assigneesToValidate } })
+      : [];
+    const reviewerUsers = reviewersToValidate && reviewersToValidate.length > 0
+      ? await User.find({ _id: { $in: reviewersToValidate } })
+      : [];
+
+    // Check if all assignees exist
+    if (assigneesToValidate && assigneesToValidate.length > 0 && assigneeUsers.length !== assigneesToValidate.length) {
+      return next(AppError(400, 'Một hoặc nhiều người thực hiện không tồn tại'));
+    }
+
+    // Check if all reviewers exist
+    if (reviewersToValidate && reviewersToValidate.length > 0 && reviewerUsers.length !== reviewersToValidate.length) {
+      return next(AppError(400, 'Một hoặc nhiều người đánh giá không tồn tại'));
+    }
+
+    // Validate assignee roles (should be able to perform tasks)
+    if (assigneeUsers.length > 0) {
+      const validAssigneeRoles = ['Developer', 'QA Tester', 'DevOps Engineer'];
+      const invalidAssignees = assigneeUsers.filter(user => !validAssigneeRoles.includes(user.role));
+      if (invalidAssignees.length > 0) {
+        const invalidNames = invalidAssignees.map(u => `${u.name} (${u.role})`).join(', ');
+        return next(AppError(400, `Người thực hiện phải có vai trò: ${validAssigneeRoles.join(', ')}. Người dùng không hợp lệ: ${invalidNames}`));
+      }
+    }
+
+    // Validate reviewer roles (should be able to review tasks)
+    if (reviewerUsers.length > 0) {
+      const validReviewerRoles = ['BA', 'PM', 'Scrum Master', 'Product Owner'];
+      const invalidReviewers = reviewerUsers.filter(user => !validReviewerRoles.includes(user.role));
+      if (invalidReviewers.length > 0) {
+        const invalidNames = invalidReviewers.map(u => `${u.name} (${u.role})`).join(', ');
+        return next(AppError(400, `Người đánh giá phải có vai trò: ${validReviewerRoles.join(', ')}. Người dùng không hợp lệ: ${invalidNames}`));
+      }
+    }
+
+    // Không cho phép một user vừa là assignee vừa là reviewer khi cập nhật task
+    const overlappingIds = (assigneesToValidate || []).filter(id => (reviewersToValidate || []).map(r => r.toString()).includes(id.toString()));
+    if (overlappingIds.length > 0) {
+      const overlappingUsers = await User.find({ _id: { $in: overlappingIds } }).select('name role');
+      const overlappingNames = overlappingUsers.map(u => `${u.name} (${u.role})`).join(', ');
+      return next(AppError(400, `Một người không thể vừa là người thực hiện (assignee) vừa là người đánh giá (reviewer): ${overlappingNames}`));
+    }
+  }
+
+  // Check if this is a handover operation (compare arrays)
+  const isHandover = (assignees && JSON.stringify(assignees.sort()) !== JSON.stringify((task.assignees || []).map(a => a.toString()).sort())) ||
+                    (reviewers && JSON.stringify(reviewers.sort()) !== JSON.stringify((task.reviewers || []).map(r => r.toString()).sort()));
+
+  // Store original assignees/reviewers for notification
+  const originalAssignees = task.assignees;
+  const originalReviewers = task.reviewers;
 
   // Xử lý keepFiles only if it is provided
   if (keepFiles !== undefined) {
@@ -411,8 +613,8 @@ exports.updateTask = catchAsync(async (req, res, next) => {
 
   if (name) task.name = name;
   if (goal) task.goal = goal;
-  if (assignee) task.assignee = assignee;
-  if (reviewer) task.reviewer = reviewer;
+  if (assignees !== undefined) task.assignees = validatedAssignees;
+  if (reviewers !== undefined) task.reviewers = validatedReviewers;
   if (priority && ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'].includes(priority)) {
     task.priority = priority;
   }
@@ -431,11 +633,16 @@ exports.updateTask = catchAsync(async (req, res, next) => {
 
   // Add handover history if this is a handover operation
   if (isHandover) {
+    const originalAssigneeNames = (originalAssignees || []).map(a => a.name || 'chưa có').join(', ');
+    const newAssigneeNames = (validatedAssignees || []).map(a => a.name || 'chưa có').join(', ');
+    const originalReviewerNames = (originalReviewers || []).map(r => r.name || 'chưa có').join(', ');
+    const newReviewerNames = (validatedReviewers || []).map(r => r.name || 'chưa có').join(', ');
+
     task.history.push({
       action: 'handover',
       fromUser: req.user._id,
       timestamp: new Date(),
-      description: `đã bàn giao task "${task.name}" từ ${originalAssignee?.name || 'chưa có'} sang ${assignee}`,
+      description: `đã bàn giao task "${task.name}" từ assignees: ${originalAssigneeNames}, reviewers: ${originalReviewerNames} sang assignees: ${newAssigneeNames}, reviewers: ${newReviewerNames}`,
       isPrimary: true,
       task: task._id
     });
@@ -443,34 +650,47 @@ exports.updateTask = catchAsync(async (req, res, next) => {
     // Send handover notifications
     const handoverNotificationService = require('../services/handoverNotificationService');
     const User = require('../models/User');
-    
-    try {
-      // Get user details
-      const [newAssigneeUser, newReviewerUser] = await Promise.all([
-        assignee ? User.findById(assignee) : null,
-        reviewer ? User.findById(reviewer) : null
-      ]);
 
-      // Send handover initiated notification
-      await handoverNotificationService.sendHandoverInitiatedNotification(
-        task,
-        req.user,
-        newAssigneeUser,
-        newReviewerUser
-      );
+    try {
+      // Get user details for new assignees and reviewers
+      const newAssigneeUsers = validatedAssignees && validatedAssignees.length > 0
+        ? await User.find({ _id: { $in: validatedAssignees } })
+        : [];
+      const newReviewerUsers = validatedReviewers && validatedReviewers.length > 0
+        ? await User.find({ _id: { $in: validatedReviewers } })
+        : [];
+
+      // Send handover initiated notification for each new assignee/reviewer
+      for (const newAssignee of newAssigneeUsers) {
+        await handoverNotificationService.sendHandoverInitiatedNotification(
+          task,
+          req.user,
+          newAssignee,
+          null // reviewer is handled separately if needed
+        );
+      }
+
+      for (const newReviewer of newReviewerUsers) {
+        await handoverNotificationService.sendHandoverInitiatedNotification(
+          task,
+          req.user,
+          null, // assignee is handled separately
+          newReviewer
+        );
+      }
     } catch (notificationError) {
       console.error('Error sending handover notifications:', notificationError);
     }
   } else {
-    // Check if assignee changed (not handover, but assignment)
-    if (assignee && assignee !== task.assignee?.toString()) {
-      // Send task assignment notification
+    // Check if assignees changed (not handover, but assignment)
+    if (assignees && JSON.stringify(assignees.sort()) !== JSON.stringify((task.assignees || []).map(a => a.toString()).sort())) {
+      // Send task assignment notifications for new assignees
       const { createWorkflowNotification } = require('../services/notificationService');
       const User = require('../models/User');
-      
+
       try {
-        const newAssigneeUser = await User.findById(assignee);
-        if (newAssigneeUser) {
+        const newAssigneeUsers = await User.find({ _id: { $in: assignees } });
+        for (const newAssigneeUser of newAssigneeUsers) {
           await createWorkflowNotification('task_assigned', {
             taskName: task.name,
             taskId: task.taskId,
@@ -480,19 +700,19 @@ exports.updateTask = catchAsync(async (req, res, next) => {
           });
         }
       } catch (notificationError) {
-        console.error('Error sending task assignment notification:', notificationError);
+        console.error('Error sending task assignment notifications:', notificationError);
       }
     }
 
-    // Check if reviewer changed
-    if (reviewer && reviewer !== task.reviewer?.toString()) {
-      // Send task review assignment notification
+    // Check if reviewers changed
+    if (reviewers && JSON.stringify(reviewers.sort()) !== JSON.stringify((task.reviewers || []).map(r => r.toString()).sort())) {
+      // Send task review assignment notifications for new reviewers
       const { createWorkflowNotification } = require('../services/notificationService');
       const User = require('../models/User');
-      
+
       try {
-        const newReviewerUser = await User.findById(reviewer);
-        if (newReviewerUser) {
+        const newReviewerUsers = await User.find({ _id: { $in: reviewers } });
+        for (const newReviewerUser of newReviewerUsers) {
           await createWorkflowNotification('task_review_assigned', {
             taskName: task.name,
             taskId: task.taskId
@@ -501,7 +721,7 @@ exports.updateTask = catchAsync(async (req, res, next) => {
           });
         }
       } catch (notificationError) {
-        console.error('Error sending task review assignment notification:', notificationError);
+        console.error('Error sending task review assignment notifications:', notificationError);
       }
     }
 
@@ -529,8 +749,8 @@ exports.deleteTask = catchAsync(async (req, res, next) => {
 
   // --- Logic gửi thông báo ---
   // Lấy thông tin người thực hiện và người review trước khi xóa
-  const assigneeId = task.assignee;
-  const reviewerId = task.reviewer;
+  const assignees = task.assignees || [];
+  const reviewers = task.reviewers || [];
   const taskName = task.name;
   const deletedBy = req.user.name; // Lấy tên người xóa từ token
 
@@ -538,8 +758,10 @@ exports.deleteTask = catchAsync(async (req, res, next) => {
 
   // Gửi thông báo cho người thực hiện (nếu có)
   try {
-    if (assigneeId && assigneeId.toString() !== req.user._id.toString()) {
-      await createNotification(assigneeId, notificationMessage, 'task_deleted', task._id.toString());
+    for (const assignee of assignees) {
+      if (assignee && assignee.toString() !== req.user._id.toString()) {
+        await createNotification(assignee, notificationMessage, 'task_deleted', task._id.toString());
+      }
     }
   } catch (notifError) {
     console.error('Error creating assignee notification on task delete:', notifError);
@@ -547,8 +769,10 @@ exports.deleteTask = catchAsync(async (req, res, next) => {
 
   // Gửi thông báo cho người review (nếu có)
   try {
-    if (reviewerId && reviewerId.toString() !== req.user._id.toString()) {
-      await createNotification(reviewerId, notificationMessage, 'task_deleted', task._id.toString());
+    for (const reviewer of reviewers) {
+      if (reviewer && reviewer.toString() !== req.user._id.toString()) {
+        await createNotification(reviewer, notificationMessage, 'task_deleted', task._id.toString());
+      }
     }
   } catch (notifError) {
     console.error('Error creating reviewer notification on task delete:', notifError);
@@ -591,8 +815,8 @@ exports.updateTaskStatus = catchAsync(async (req, res, next) => {
   if (!task) return next(AppError(404, 'Task not found'));
 
   // Kiểm tra quyền cập nhật: chỉ assignee (Developer), reviewer, PM, BA mới có quyền
-  const isAssignee = task.assignee && task.assignee.toString() === req.user._id.toString();
-  const isReviewer = task.reviewer && task.reviewer.toString() === req.user._id.toString();
+  const isAssignee = task.assignees && task.assignees.some(assignee => assignee.toString() === req.user._id.toString());
+  const isReviewer = task.reviewers && task.reviewers.some(reviewer => reviewer.toString() === req.user._id.toString());
   const isPM = req.user.role === 'PM'; // Lấy từ token đã được sửa
   const isBA = req.user.role === 'BA'; // Lấy từ token đã được sửa
 
@@ -615,12 +839,18 @@ exports.updateTaskStatus = catchAsync(async (req, res, next) => {
       task.endDate = endDate;
     }
 
-    // Nếu task được cập nhật thành "Hoàn thành" => reset reviewStatus về "Chưa" và kiểm tra file hoàn thành
-    if (status === 'Hoàn thành') {
+    // Xử lý logic khi developer nhấn nút "hoàn thành"
+    if (status === 'Hoàn thành' && task.status === 'Đang làm') {
       // Kiểm tra xem có completion files không
       if (!task.completionFiles || task.completionFiles.length === 0) {
         return next(AppError(400, 'Vui lòng upload file hoàn thành (work files hoặc PDF review) trước khi đánh dấu task là hoàn thành.'));
       }
+      // Thay đổi status thành 'Đang xem xét' thay vì 'Hoàn thành'
+      status = 'Đang xem xét';
+      task.status = 'Đang xem xét';
+      task.reviewStatus = 'Chưa';
+    } else if (status === 'Hoàn thành') {
+      // Trường hợp khác khi set thành 'Hoàn thành' (từ reviewer)
       task.reviewStatus = 'Chưa';
     }
 
@@ -652,8 +882,8 @@ exports.updateTaskStatus = catchAsync(async (req, res, next) => {
     
     // Lấy lại thông tin task mới nhất sau khi đã cập nhật và populate thông tin cần thiết
     const updatedTask = await Task.findById(task._id)
-      .populate('assignee', 'name email avatar')
-      .populate('reviewer', 'name email avatar');
+      .populate('assignees', 'name email avatar')
+      .populate('reviewers', 'name email avatar');
       
     if (updatedTask) {
       // Phát sự kiện cập nhật task
@@ -664,6 +894,83 @@ exports.updateTaskStatus = catchAsync(async (req, res, next) => {
     }
 
     await updateStatusAfterTaskChange(task.sprint);
+
+    // Notification cho reviewer nếu task chuyển sang "Đang xem xét" (developer nhấn hoàn thành)
+    if (status === 'Đang xem xét' && oldStatus === 'Đang làm') {
+      // Lấy thông tin module và project cho thông báo
+      const sprintDoc = await Sprint.findById(task.sprint)
+        .populate({
+          path: 'module',
+          populate: {
+            path: 'project',
+            select: 'name'
+          }
+        });
+      let moduleName = '';
+      let projectName = '';
+      if (
+        sprintDoc &&
+        sprintDoc.module &&
+        sprintDoc.module.project
+      ) {
+        moduleName = sprintDoc.module.name;
+        projectName = sprintDoc.module.project.name;
+      }
+      const populatedTask = await Task.findById(task._id)
+        .populate('reviewers', 'name email')
+        .populate('assignees', 'name email');
+
+      // Thông báo cho reviewers
+      if (populatedTask.reviewers && populatedTask.reviewers.length > 0) {
+        for (const reviewer of populatedTask.reviewers) {
+          const reviewerMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được ${populatedTask.assignees?.[0]?.name || 'người thực hiện'} hoàn thành và đang chờ đánh giá. Vui lòng xem file và đưa ra nhận xét.`;
+
+          const notification = await Notification.create({
+            user: reviewer._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: reviewerMessage
+          });
+          try { socketManager.sendNotification(reviewer._id, notification); } catch (err) { console.error('sendNotification reviewer error', err); }
+        }
+      }
+
+      // Thông báo cho PM về task đang chờ review
+      const pms = await User.find({ role: 'PM' });
+      const pmMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được ${populatedTask.assignees?.[0]?.name || 'người thực hiện'} hoàn thành và đang chờ đánh giá từ ${populatedTask.reviewers?.map(r => r.name).join(', ') || 'người đánh giá'}.`;
+
+      for (const pm of pms) {
+        try {
+          const notification = await Notification.create({
+            user: pm._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: pmMessage
+          });
+          try { socketManager.sendNotification(pm._id, notification); } catch (err) { console.error('sendNotification pm error', err); }
+        } catch (err) {
+          console.error('createTask: failed to create pm notification', err);
+        }
+      }
+
+      // Thông báo cho BA về task đang chờ review
+      const bas = await User.find({ role: 'BA' });
+      const baMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã hoàn thành và đang chờ đánh giá. Vui lòng kiểm tra chất lượng công việc nếu cần thiết.`;
+
+      for (const ba of bas) {
+        try {
+          const notification = await Notification.create({
+            user: ba._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: baMessage
+          });
+          try { socketManager.sendNotification(ba._id, notification); } catch (err) { console.error('sendNotification ba error', err); }
+        } catch (err) {
+          console.error('createTask: failed to create ba notification', err);
+        }
+      }
+    }
 
     // Notification cho reviewer nếu task Hoàn thành
     if (status === 'Hoàn thành') {
@@ -687,8 +994,8 @@ exports.updateTaskStatus = catchAsync(async (req, res, next) => {
         projectName = sprintDoc.module.project.name;
       }
       const populatedTask = await Task.findById(task._id)
-        .populate('reviewer', 'name email')
-        .populate('assignee', 'name email');
+        .populate('reviewers', 'name email')
+        .populate('assignees', 'name email');
 
       // Thông báo cho reviewer
       if (populatedTask.reviewer) {
@@ -762,7 +1069,6 @@ exports.updateTaskReviewStatus = catchAsync(async (req, res, next) => {
   const { reviewStatus, comment } = req.body;
   const task = req.task; // Sử dụng task đã được load từ middleware 'loadTask'
   if (!task) return next(AppError(404, 'Task not found'));
-  const oldReviewStatus = task.reviewStatus;
 
   // Lấy thông tin module và project cho thông báo
   const sprintDoc = await Sprint.findById(task.sprint)
@@ -775,22 +1081,17 @@ exports.updateTaskReviewStatus = catchAsync(async (req, res, next) => {
     });
   let moduleName = '';
   let projectName = '';
-  if (
-    sprintDoc &&
-    sprintDoc.release &&
-    sprintDoc.release.module &&
-    sprintDoc.release.module.project
-  ) {
-    moduleName = sprintDoc.release.module.name;
-    projectName = sprintDoc.release.module.project.name;
+  if (sprintDoc && sprintDoc.module && sprintDoc.module.project) {
+    moduleName = sprintDoc.module.name;
+    projectName = sprintDoc.module.project.name;
   }
+
   if (reviewStatus && ['Chưa', 'Đạt', 'Không đạt'].includes(reviewStatus)) {
     task.reviewStatus = reviewStatus;
 
     const desc = comment && comment.trim()
       ? `đã cập nhật đánh giá cho task "${task.name}" thành "${reviewStatus}". Nhận xét: ${comment.trim()}`
       : `đã cập nhật đánh giá cho task "${task.name}" thành "${reviewStatus}"`;
-
 
     task.history.push({
       action: 'cập nhật đánh giá',
@@ -799,11 +1100,17 @@ exports.updateTaskReviewStatus = catchAsync(async (req, res, next) => {
       description: desc,
       isPrimary: false
     });
-    if (reviewStatus === 'Không đạt') {
-      task.status = 'Đang làm';
+
+    if (reviewStatus === 'Đạt') {
+      task.status = 'Hoàn thành';
       // Gọi dịch vụ tiến độ cho trạng thái mới
-      await handleTaskStatusChange(task._id, 'Đang làm', req.user._id);
+      await handleTaskStatusChange(task._id, 'Hoàn thành', req.user._id);
+    } else if (reviewStatus === 'Không đạt') {
+      task.status = 'Đang sửa';
+      // Gọi dịch vụ tiến độ cho trạng thái mới
+      await handleTaskStatusChange(task._id, 'Đang sửa', req.user._id);
     }
+
     await task.save();
 
     // Thêm lịch sử vào sprint cha
@@ -822,32 +1129,37 @@ exports.updateTaskReviewStatus = catchAsync(async (req, res, next) => {
       });
       await sprint.save();
     }
-    if (task.assignee) {
-      try {
-        const assigneeMessage = comment && comment.trim()
-          ? `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được đánh giá "${reviewStatus}". Nhận xét: ${comment.trim()}`
-          : `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được đánh giá "${reviewStatus}".`;
 
-        const notification = await Notification.create({
-          user: task.assignee._id,
-          type: 'task_reviewed',
-          refId: task._id.toString(),
-          message: assigneeMessage
-        });
+    // Gửi notification cho assignees về kết quả review
+    if (task.assignees && task.assignees.length > 0) {
+      for (const assignee of task.assignees) {
+        try {
+          const assigneeMessage = comment && comment.trim()
+            ? `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được đánh giá "${reviewStatus}". Nhận xét: ${comment.trim()}`
+            : `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được đánh giá "${reviewStatus}".`;
 
-        try { socketManager.sendNotification(task.assignee._id, notification); } catch (err) { console.error('sendNotification assignee on review error', err); }
-      } catch (err) {
-        console.error('createTask: failed to create task_reviewed notification', err);
+          const notification = await Notification.create({
+            user: assignee._id || assignee,
+            type: 'task_reviewed',
+            refId: task._id.toString(),
+            message: assigneeMessage
+          });
+
+          try { socketManager.sendNotification(assignee._id || assignee, notification); } catch (err) { console.error('sendNotification assignee on review error', err); }
+        } catch (err) {
+          console.error('updateTaskReviewStatus: failed to create task_reviewed notification', err);
+        }
       }
     }
 
+    // Cập nhật lại trạng thái Sprint/Module/Project sau khi review thay đổi
     await updateStatusAfterTaskChange(task.sprint);
-    // Phát socket event cho tất cả client cùng sprint
+
     // Lấy lại thông tin task mới nhất sau khi đã cập nhật và populate thông tin cần thiết
     const updatedTask = await Task.findById(task._id)
-      .populate('assignee', 'name email avatar')
-      .populate('reviewer', 'name email avatar');
-      
+      .populate('assignees', 'name email avatar')
+      .populate('reviewers', 'name email avatar');
+
     if (updatedTask) {
       // Sử dụng broadcastToSprintRoom để gửi sự kiện cập nhật task
       socketManager.broadcastToSprintRoom(updatedTask.sprint.toString(), 'taskUpdated', {
@@ -855,7 +1167,8 @@ exports.updateTaskReviewStatus = catchAsync(async (req, res, next) => {
         updatedTask: updatedTask.toObject()
       });
     }
-    res.json(task);
+
+    return res.json(updatedTask);
   } else {
     return next(AppError(400, 'Trạng thái review không hợp lệ'));
   }
@@ -914,11 +1227,158 @@ exports.getTimeLogs = catchAsync(async (req, res, next) => {
   res.json(task.timeLogs);
 });
 
+// Cập nhật PO Acceptance
+exports.updatePOAcceptance = catchAsync(async (req, res, next) => {
+  const { accepted } = req.body;
+  const task = req.task;
+
+  if (!task) return next(AppError(404, 'Task not found'));
+
+  // Chỉ Product Owner mới có quyền cập nhật PO acceptance
+  if (req.user.role !== 'Product Owner') {
+    return next(AppError(403, 'Chỉ Product Owner mới có quyền cập nhật chấp nhận cuối cùng.'));
+  }
+
+  // Chỉ cho phép cập nhật khi task đã hoàn thành
+  if (task.status !== 'Hoàn thành') {
+    return next(AppError(400, 'Chỉ có thể cập nhật chấp nhận PO khi task đã hoàn thành.'));
+  }
+
+  // Cập nhật business workflow
+  task.businessWorkflow = task.businessWorkflow || {};
+  task.businessWorkflow.poAcceptFeature = accepted;
+
+  // Thêm lịch sử
+  task.history.push({
+    action: 'cập nhật PO acceptance',
+    fromUser: req.user._id,
+    timestamp: new Date(),
+    description: `Product Owner ${accepted ? 'chấp nhận' : 'từ chối'} tính năng cuối cùng cho task "${task.name}"`,
+    isPrimary: true
+  });
+
+  await task.save();
+
+  // Gửi notification nếu PO từ chối
+  if (!accepted) {
+    try {
+      // Lấy thông tin module và project cho thông báo
+      const sprintDoc = await Sprint.findById(task.sprint)
+        .populate({
+          path: 'module',
+          populate: {
+            path: 'project',
+            select: 'name'
+          }
+        });
+      let moduleName = '';
+      let projectName = '';
+      if (sprintDoc && sprintDoc.module && sprintDoc.module.project) {
+        moduleName = sprintDoc.module.name;
+        projectName = sprintDoc.module.project.name;
+      }
+
+      const populatedTask = await Task.findById(task._id)
+        .populate('assignees', 'name email')
+        .populate('reviewers', 'name email');
+
+      const rejectionMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã bị Product Owner từ chối chấp nhận. Vui lòng liên hệ PO để biết thêm chi tiết và điều chỉnh lại công việc.`;
+
+      // Thông báo cho assignees
+      if (populatedTask.assignees && populatedTask.assignees.length > 0) {
+        for (const assignee of populatedTask.assignees) {
+          const notification = await Notification.create({
+            user: assignee._id,
+            type: 'task_po_rejected',
+            refId: task._id.toString(),
+            message: rejectionMessage
+          });
+          try {
+            socketManager.sendNotification(assignee._id, notification);
+          } catch (err) {
+            console.error('sendNotification assignee on PO rejection error', err);
+          }
+        }
+      }
+
+      // Thông báo cho reviewers
+      if (populatedTask.reviewers && populatedTask.reviewers.length > 0) {
+        for (const reviewer of populatedTask.reviewers) {
+          const notification = await Notification.create({
+            user: reviewer._id,
+            type: 'task_po_rejected',
+            refId: task._id.toString(),
+            message: rejectionMessage
+          });
+          try {
+            socketManager.sendNotification(reviewer._id, notification);
+          } catch (err) {
+            console.error('sendNotification reviewer on PO rejection error', err);
+          }
+        }
+      }
+
+      // Thông báo cho PM
+      const pms = await User.find({ role: 'PM' });
+      for (const pm of pms) {
+        const notification = await Notification.create({
+          user: pm._id,
+          type: 'task_po_rejected',
+          refId: task._id.toString(),
+          message: rejectionMessage
+        });
+        try {
+          socketManager.sendNotification(pm._id, notification);
+        } catch (err) {
+          console.error('sendNotification pm on PO rejection error', err);
+        }
+      }
+
+      // Thông báo cho BA
+      const bas = await User.find({ role: 'BA' });
+      for (const ba of bas) {
+        const notification = await Notification.create({
+          user: ba._id,
+          type: 'task_po_rejected',
+          refId: task._id.toString(),
+          message: rejectionMessage
+        });
+        try {
+          socketManager.sendNotification(ba._id, notification);
+        } catch (err) {
+          console.error('sendNotification ba on PO rejection error', err);
+        }
+      }
+
+    } catch (notifyErr) {
+      console.error('updatePOAcceptance notification error:', notifyErr);
+    }
+  }
+
+  // Lấy lại thông tin task mới nhất sau khi đã cập nhật
+  const updatedTask = await Task.findById(task._id)
+    .populate('assignees', 'name email avatar')
+    .populate('reviewers', 'name email avatar');
+
+  if (updatedTask) {
+    // Phát sự kiện cập nhật task
+    socketManager.broadcastToSprintRoom(updatedTask.sprint.toString(), 'taskUpdated', {
+      sprintId: updatedTask.sprint.toString(),
+      updatedTask: updatedTask.toObject()
+    });
+  }
+
+  res.json(updatedTask);
+});
+
 // Thêm hàm lấy tất cả task
 exports.getAllTasks = catchAsync(async (req, res, next) => {
   const tasks = await Task.find()
-    .populate('assignee', 'name email')
-    .populate('reviewer', 'name email');
+    .populate('assignees', 'name email')
+    .populate('reviewers', 'name email')
+    .populate('createdBy', 'name email')
+    .populate('sprint', 'name')
+    .populate('project', 'name');
   res.json(tasks);
 });
 
@@ -948,11 +1408,16 @@ exports.uploadCompletionFiles = catchAsync(async (req, res, next) => {
   const task = req.task; // Sử dụng task đã được load từ middleware 'loadTask'
   if (!task) return next(AppError(404, 'Task not found'));
 
+  // Chỉ cho phép upload file hoàn thành khi task đang trong quá trình thực hiện hoặc đang sửa
+  if (task.status !== 'Đang làm' && task.status !== 'Đang sửa') {
+    return next(AppError(400, 'Chỉ có thể upload file hoàn thành khi task đang ở trạng thái "Đang làm" hoặc "Đang sửa".'));
+  }
+
   // Kiểm tra có files được upload không
-  if (!req.files || req.files.length === 0) { // Chỉ giữ lại logic kiểm tra mảng files
+  if (!req.files || req.files.length === 0) {
     return next(AppError(400, 'Vui lòng chọn ít nhất một file để upload.'));
   }
-  
+
   const { description } = req.body;
 
   // Thêm các file hoàn thành mới vào mảng
@@ -968,7 +1433,6 @@ exports.uploadCompletionFiles = catchAsync(async (req, res, next) => {
       description: description || 'File hoàn thành công việc'
     });
 
-    // Thêm lịch sử upload completion file
     task.history.push({
       action: 'upload file hoàn thành',
       fromUser: req.user._id,
@@ -978,83 +1442,124 @@ exports.uploadCompletionFiles = catchAsync(async (req, res, next) => {
     });
   }
 
-  // Cập nhật trạng thái task thành 'Hoàn thành' và reviewStatus thành 'Chưa'
-  const oldStatus = task.status; // Lưu lại trạng thái cũ
-  task.status = 'Hoàn thành';
-  task.reviewStatus = 'Chưa';
+  const oldStatus = task.status;
 
-  // Thêm lịch sử cập nhật trạng thái
-  task.history.push({
-    action: 'cập nhật trạng thái',
-    fromUser: req.user._id,
-    timestamp: new Date(),
-    description: `đã cập nhật trạng thái của task "${task.name}" từ "${oldStatus}" thành "Hoàn thành" sau khi upload file hoàn thành`,
-    isPrimary: false
-  });
+  // Sau khi upload thành công, nếu đang Đang làm hoặc Đang sửa thì chuyển task sang trạng thái Đang xem xét
+  if (oldStatus === 'Đang làm' || oldStatus === 'Đang sửa') {
+    task.status = 'Đang xem xét';
+    task.reviewStatus = 'Chưa';
+  }
 
   await task.save();
 
-  // Gọi dịch vụ tiến độ
-  await handleTaskStatusChange(task._id, 'Hoàn thành', req.user._id);
-
-  // Gửi notification cho reviewer và BA khi có file hoàn thành mới
-  const sprintDoc = await Sprint.findById(task.sprint)
-    .populate({
-      path: 'release',
-      populate: {
-        path: 'module',
-        populate: {
-          path: 'project',
-          select: 'name'
-        }
-      }
-    });
-
-  let moduleName = '';
-  let projectName = '';
-  if (sprintDoc && sprintDoc.module && sprintDoc.module.project) {
-    moduleName = sprintDoc.module.name;
-    projectName = sprintDoc.module.project.name;
-  }
-
-  // Notification cho reviewer
-  if (task.reviewer) {
-    const reviewerMessage = `Người thực hiện đã upload file hoàn thành cho task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}". Bạn có thể xem file và chuẩn bị đánh giá.`;
-
-    const notification = await Notification.create({
-      user: task.reviewer._id,
-      type: 'task_completion_file_uploaded',
-      refId: task._id.toString(),
-      message: reviewerMessage
-    });
-
-    socketManager.sendNotification(task.reviewer._id, notification);
-  }
-
-  // Notification cho BA về file hoàn thành để review chất lượng
-  const bas = await User.find({ role: 'BA' });
-  const baFileMessage = `File hoàn thành đã được upload cho task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}". Vui lòng kiểm tra chất lượng công việc.`;
-
-  for (const ba of bas) {
-    const notification = await Notification.create({
-      user: ba._id,
-      type: 'task_completion_file_uploaded',
-      refId: task._id.toString(),
-      message: baFileMessage
-    });
-    socketManager.sendNotification(ba._id, notification);
+  // Đồng bộ tiến độ khi trạng thái thay đổi sang Đang xem xét
+  if (oldStatus !== task.status && task.status === 'Đang xem xét') {
+    try {
+      await handleTaskStatusChange(task._id, 'Đang xem xét', req.user._id);
+    } catch (err) {
+      console.error('uploadCompletionFiles: handleTaskStatusChange error', err);
+    }
   }
 
   // Phát socket event cập nhật task
   const updatedTask = await Task.findById(task._id)
-    .populate('assignee', 'name email avatar')
-    .populate('reviewer', 'name email avatar');
-    
+    .populate('assignees', 'name email avatar')
+    .populate('reviewers', 'name email avatar');
+
   if (updatedTask) {
     socketManager.broadcastToSprintRoom(updatedTask.sprint.toString(), 'taskUpdated', {
       sprintId: updatedTask.sprint.toString(),
       updatedTask: updatedTask.toObject()
     });
+  }
+
+  // Gửi notification cho reviewer/PM/BA khi upload file xong và task chuyển sang "Đang xem xét"
+  try {
+    if (oldStatus !== task.status && task.status === 'Đang xem xét') {
+      const sprintDoc = await Sprint.findById(task.sprint)
+        .populate({
+          path: 'module',
+          populate: {
+            path: 'project',
+            select: 'name'
+          }
+        });
+      let moduleName = '';
+      let projectName = '';
+      if (sprintDoc && sprintDoc.module && sprintDoc.module.project) {
+        moduleName = sprintDoc.module.name;
+        projectName = sprintDoc.module.project.name;
+      }
+
+      const populatedTask = await Task.findById(task._id)
+        .populate('reviewers', 'name email')
+        .populate('assignees', 'name email');
+
+      // Thông báo cho reviewers
+      if (populatedTask.reviewers && populatedTask.reviewers.length > 0) {
+        for (const reviewer of populatedTask.reviewers) {
+          const reviewerMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được ${populatedTask.assignees?.[0]?.name || 'người thực hiện'} upload file hoàn thành và đang chờ đánh giá. Vui lòng xem file và đưa ra nhận xét.`;
+
+          const notification = await Notification.create({
+            user: reviewer._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: reviewerMessage
+          });
+          try {
+            socketManager.sendNotification(reviewer._id, notification);
+          } catch (err) {
+            console.error('sendNotification reviewer on uploadCompletionFiles error', err);
+          }
+        }
+      }
+
+      // Thông báo cho PM về task đang chờ review
+      const pms = await User.find({ role: 'PM' });
+      const pmMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã được ${populatedTask.assignees?.[0]?.name || 'người thực hiện'} upload file hoàn thành và đang chờ đánh giá từ ${populatedTask.reviewers?.map(r => r.name).join(', ') || 'người đánh giá'}.`;
+
+      for (const pm of pms) {
+        try {
+          const notification = await Notification.create({
+            user: pm._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: pmMessage
+          });
+          try {
+            socketManager.sendNotification(pm._id, notification);
+          } catch (err) {
+            console.error('sendNotification pm on uploadCompletionFiles error', err);
+          }
+        } catch (err) {
+          console.error('uploadCompletionFiles: failed to create pm notification', err);
+        }
+      }
+
+      // Thông báo cho BA về task đang chờ review
+      const bas = await User.find({ role: 'BA' });
+      const baMessage = `Task "${task.name}" thuộc module "${moduleName}" của dự án "${projectName}" đã có file hoàn thành và đang chờ đánh giá. Vui lòng kiểm tra chất lượng công việc nếu cần thiết.`;
+
+      for (const ba of bas) {
+        try {
+          const notification = await Notification.create({
+            user: ba._id,
+            type: 'task_pending_review',
+            refId: task._id.toString(),
+            message: baMessage
+          });
+          try {
+            socketManager.sendNotification(ba._id, notification);
+          } catch (err) {
+            console.error('sendNotification ba on uploadCompletionFiles error', err);
+          }
+        } catch (err) {
+          console.error('uploadCompletionFiles: failed to create ba notification', err);
+        }
+      }
+    }
+  } catch (notifyErr) {
+    console.error('uploadCompletionFiles notification error:', notifyErr);
   }
 
   res.json({
@@ -1068,10 +1573,11 @@ exports.downloadCompletionFile = catchAsync(async (req, res, next) => {
   const task = req.task; // Sử dụng task đã được load từ middleware 'loadTask'
   if (!task) return next(AppError(404, 'Task not found'));
 
+// ...
   // Kiểm tra quyền truy cập: chỉ assignee, reviewer, PM, BA mới được xem
-  const isAuthorized = 
-    task.assignee.toString() === req.user._id.toString() ||
-    task.reviewer.toString() === req.user._id.toString() ||
+  const isAuthorized =
+    (task.assignees && task.assignees.some(assignee => assignee.toString() === req.user._id.toString())) ||
+    (task.reviewers && task.reviewers.some(reviewer => reviewer.toString() === req.user._id.toString())) ||
     req.user.role === 'PM' ||
     req.user.role === 'BA';
 
@@ -1096,8 +1602,8 @@ exports.getCompletionFiles = catchAsync(async (req, res, next) => {
 
   // Kiểm tra quyền truy cập: chỉ assignee, reviewer, PM, BA mới được xem
   const isAuthorized =
-    task.assignee.toString() === req.user._id.toString() ||
-    task.reviewer.toString() === req.user._id.toString() ||
+    (task.assignees && task.assignees.some(assignee => assignee.toString() === req.user._id.toString())) ||
+    (task.reviewers && task.reviewers.some(reviewer => reviewer.toString() === req.user._id.toString())) ||
     req.user.role === 'PM' ||
     req.user.role === 'BA';
 
@@ -1114,7 +1620,8 @@ exports.deleteCompletionFile = catchAsync(async (req, res, next) => {
   if (!task) return next(AppError(404, 'Task not found'));
 
   // Chỉ assignee hoặc PM mới có thể xóa file hoàn thành
-  if (task.assignee.toString() !== req.user._id.toString() && req.user.role !== 'PM') {
+  const isAssignee = task.assignees && task.assignees.some(assignee => assignee.toString() === req.user._id.toString());
+  if (!isAssignee && req.user.role !== 'PM') {
     return next(AppError(403, 'Bạn không có quyền xóa file hoàn thành này.'));
   }
 
@@ -1146,8 +1653,8 @@ exports.deleteCompletionFile = catchAsync(async (req, res, next) => {
 
   // Phát socket event cập nhật task
   const updatedTask = await Task.findById(task._id)
-    .populate('assignee', 'name email avatar')
-    .populate('reviewer', 'name email avatar');
+    .populate('assignees', 'name email avatar')
+    .populate('reviewers', 'name email avatar');
 
   if (updatedTask) {
     socketManager.broadcastToSprintRoom(updatedTask.sprint.toString(), 'taskUpdated', {

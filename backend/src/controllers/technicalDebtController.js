@@ -314,7 +314,7 @@ exports.getTechnicalDebtStats = async (req, res, next) => {
             $avg: {
               $cond: [
                 { $and: ['$resolvedAt', '$createdAt'] },
-                { $divide: [{ $subtract: ['$resolvedAt', '$createdAt'] }, 1000 * 60 * 60 * 24] }, // days
+                { $divide: [{ $subtract: ['$resolvedAt', '$createdAt'] }, 1000 * 60 * 60 * 24] }, // ngày
                 null
               ]
             }

@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { createError } = require('../utils/error');
 const { verifyToken } = require('../utils/token');
 
-// Enhanced Authentication middleware with MFA support
+// Basic Authentication middleware
 exports.authenticate = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -11,14 +11,10 @@ exports.authenticate = async (req, res, next) => {
       return next(createError(401, 'Authentication required'));
     }
 
-    // Verify JWT token with enhanced security
-    const verifyOptions = { expiresIn: '30m' };
-    if (process.env.JWT_AUDIENCE) verifyOptions.audience = process.env.JWT_AUDIENCE;
-    if (process.env.JWT_ISSUER) verifyOptions.issuer = process.env.JWT_ISSUER;
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded._id).select('-password');
 
-    const decoded = verifyToken(token, process.env.JWT_SECRET, verifyOptions);
-
-    const user = await User.findById(decoded.id || decoded._id);
     if (!user) {
       return next(createError(401, 'User not found'));
     }
@@ -28,22 +24,10 @@ exports.authenticate = async (req, res, next) => {
       return next(createError(401, 'Account is not active'));
     }
 
-    // Check if MFA is required for this user role
-    const mfaRequiredRoles = ['DevOps Engineer', 'PM'];
-    if (mfaRequiredRoles.includes(user.role) && !user.is_mfa_enabled) {
-      return next(createError(403, 'MFA is required for this role'));
-    }
-
     req.user = user;
     next();
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return next(createError(401, 'Invalid token'));
-    }
-    if (error.name === 'TokenExpiredError') {
-      return next(createError(401, 'Token expired'));
-    }
-    next(error);
+    return next(createError(401, 'Invalid token'));
   }
 }
 

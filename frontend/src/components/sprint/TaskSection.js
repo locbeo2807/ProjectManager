@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import EditTaskPopup from '../popups/EditTaskPopup';
+import TaskDetailsPopup from '../popups/TaskDetailsPopup';
 import TaskService from '../../services/taskService';
+import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import styles from './TaskSection.module.css';
 
 const statusColors = {
@@ -20,12 +23,20 @@ const priorityColors = {
 };
 
 const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
+  const { user } = useAuth();
   const [showEditTask, setShowEditTask] = useState(false);
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('status');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [detailsInitialTab, setDetailsInitialTab] = useState(0);
+  const [showCompletePopup, setShowCompletePopup] = useState(false);
+  const [taskToComplete, setTaskToComplete] = useState(null);
+  const [completeFiles, setCompleteFiles] = useState([]);
+  const [completeComment, setCompleteComment] = useState('');
+  const [submittingComplete, setSubmittingComplete] = useState(false);
 
   const filteredTasks = tasks.filter(task => {
     if (filterStatus === 'all') return true;
@@ -47,11 +58,27 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
     setShowEditTask(true);
   };
 
+  const handleViewTaskDetails = (task, initialTab = 0) => {
+    setSelectedTask(task);
+    setDetailsInitialTab(initialTab);
+    setShowTaskDetails(true);
+  };
+
   const handleTaskUpdate = (updatedTask) => {
-    const newTasks = tasks.map(task => 
+    const newTasks = tasks.map(task =>
       task._id === updatedTask._id ? updatedTask : task
     );
     onTasksChange(newTasks);
+
+    // Add success animation
+    const taskCard = document.querySelector(`[data-task-id="${updatedTask._id}"]`);
+    if (taskCard) {
+      taskCard.style.animation = 'successPulse 0.6s ease-out';
+      setTimeout(() => {
+        taskCard.style.animation = '';
+      }, 600);
+    }
+
     setShowEditTask(false);
     setSelectedTask(null);
   };
@@ -72,7 +99,7 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
       setTaskToDelete(null);
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Xóa task thất bại: ' + (error.response?.data?.message || error.message));
+      toast.error('Xóa task thất bại: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -81,7 +108,95 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
     setTaskToDelete(null);
   };
 
+  const canDevCompleteTask = (task) => {
+    if (!user || !task) return false;
+    if (user.role !== 'Developer') return false;
+    if (!['Đang làm', 'Đang sửa'].includes(task.status)) return false;
+    const assignees = task.assignees || [];
+    return Array.isArray(assignees) && assignees.some(a => a && a._id === user._id);
+  };
+
+  const canEditOrDeleteTask = () => {
+    if (!user) return false;
+    const role = user.role;
+    return role === 'PM' || role === 'BA' || role === 'Admin';
+  };
+
+  const openCompletePopup = (task) => {
+    setTaskToComplete(task);
+    setCompleteFiles([]);
+    setCompleteComment('');
+    setShowCompletePopup(true);
+  };
+
+  const closeCompletePopup = () => {
+    setShowCompletePopup(false);
+    setTaskToComplete(null);
+    setCompleteFiles([]);
+    setCompleteComment('');
+  };
+
+  const handleCompleteFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setCompleteFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const handleRemoveCompleteFile = (index) => {
+    setCompleteFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileTypeLabel = (fileName = '') => {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'PDF';
+    if (lower.endsWith('.doc') || lower.endsWith('.docx')) return 'Word';
+    if (lower.endsWith('.xls') || lower.endsWith('.xlsx')) return 'Excel';
+    return 'Khác';
+  };
+
+  const handleSubmitComplete = async () => {
+    if (!taskToComplete || completeFiles.length === 0) {
+      toast.warn('Vui lòng chọn ít nhất một file để nộp review.');
+      return;
+    }
+    setSubmittingComplete(true);
+    try {
+      const result = await TaskService.uploadCompletionFiles(
+        taskToComplete._id,
+        completeFiles,
+        completeComment
+      );
+
+      if (result && result.task) {
+        onTasksChange(prev => prev.map(t => t._id === result.task._id ? result.task : t));
+      }
+
+      // Thông báo khi nộp file thành công
+      toast.success('Nộp file review thành công. Task đã được gửi sang trạng thái Đang xem xét để reviewer đánh giá.');
+
+      setShowCompletePopup(false);
+      setTaskToComplete(null);
+      setCompleteFiles([]);
+      setCompleteComment('');
+    } catch (error) {
+      console.error('Error submitting completion files:', error);
+      toast.error('Có lỗi xảy ra khi nộp file review.');
+    } finally {
+      setSubmittingComplete(false);
+    }
+  };
+
   const uniqueStatuses = [...new Set(tasks.map(task => task.status))];
+
+  const canReviewTaskCard = (task) => {
+    if (!user || !task) return false;
+    if (task.status !== 'Đang xem xét') return false;
+    const reviewers = task.reviewers || [];
+    const isReviewer = Array.isArray(reviewers) && reviewers.some(r => r && r._id === user._id);
+    const isPMOrBA = user.role === 'PM' || user.role === 'BA';
+    return isReviewer || isPMOrBA;
+  };
 
   return (
     <div className={styles.taskSection}>
@@ -131,7 +246,7 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
       <div className={styles.taskGrid}>
         {sortedTasks.length > 0 ? (
           sortedTasks.map(task => (
-            <div key={task._id} className={styles.taskCard}>
+            <div key={task._id} className={styles.taskCard} data-task-id={task._id}>
               <div className={styles.taskCardHeader}>
                 <div className={styles.taskInfo}>
                   <h4 className={styles.taskName}>{task.name}</h4>
@@ -161,7 +276,9 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Assignee:</span>
                   <span className={styles.detailValue}>
-                    {task.assignee?.name || 'Chưa gán'}
+                    {task.assignees && task.assignees.length > 0
+                      ? task.assignees.map(a => a.name).join(', ')
+                      : 'Chưa gán'}
                   </span>
                 </div>
                 <div className={styles.detailRow}>
@@ -178,17 +295,43 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
               
               <div className={styles.taskFooter}>
                 <button
-                  className={styles.editTaskBtn}
-                  onClick={() => handleEditTask(task)}
+                  className={styles.viewTaskBtn}
+                  onClick={() => handleViewTaskDetails(task, 0)}
                 >
-                  Chỉnh sửa
+                  Xem chi tiết
                 </button>
-                <button
-                  className={styles.deleteTaskBtn}
-                  onClick={() => handleDeleteTask(task)}
-                >
-                  Xóa
-                </button>
+                {canReviewTaskCard(task) && (
+                  <button
+                    className={styles.editTaskBtn}
+                    onClick={() => handleViewTaskDetails(task, 2)}
+                  >
+                    Đánh giá
+                  </button>
+                )}
+                {canDevCompleteTask(task) && (
+                  <button
+                    className={styles.editTaskBtn}
+                    onClick={() => openCompletePopup(task)}
+                  >
+                    Hoàn thành
+                  </button>
+                )}
+                {canEditOrDeleteTask() && (
+                  <>
+                    <button
+                      className={styles.editTaskBtn}
+                      onClick={() => handleEditTask(task)}
+                    >
+                      Chỉnh sửa
+                    </button>
+                    <button
+                      className={styles.deleteTaskBtn}
+                      onClick={() => handleDeleteTask(task)}
+                    >
+                      Xóa
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))
@@ -217,6 +360,20 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
         />
       )}
 
+      {/* Task Details Popup */}
+      {showTaskDetails && selectedTask && (
+        <TaskDetailsPopup
+          open={showTaskDetails}
+          onClose={() => {
+            setShowTaskDetails(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          onUpdate={handleTaskUpdate}
+          initialTab={detailsInitialTab}
+        />
+      )}
+
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && taskToDelete && (
         <div className={styles.confirmDialogOverlay}>
@@ -237,6 +394,75 @@ const TaskSection = ({ sprint, tasks, onTasksChange, onTaskCreate }) => {
                 onClick={confirmDeleteTask}
               >
                 Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Task Popup for Developer */}
+      {showCompletePopup && taskToComplete && (
+        <div className={styles.confirmDialogOverlay}>
+          <div className={styles.confirmDialog}>
+            <h3 className={styles.confirmDialogTitle}>Hoàn thành task "{taskToComplete.name}"</h3>
+            <p className={styles.confirmDialogMessage}>
+              Tải lên các file review/bàn giao để gửi cho người review. Sau khi nộp, task sẽ chuyển sang trạng thái "Đang xem xét".
+            </p>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Mô tả ngắn cho lần nộp này (tuỳ chọn)</label>
+              <textarea
+                value={completeComment}
+                onChange={(e) => setCompleteComment(e.target.value)}
+                rows={3}
+                style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 13 }}
+                placeholder="Ví dụ: Đã hoàn thành giao diện và logic cơ bản, chờ review."
+              />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Files review (chỉ Word / Excel / PDF)</label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                onChange={handleCompleteFileChange}
+                style={{ display: 'block', marginTop: 6 }}
+              />
+              {completeFiles.length > 0 && (
+                <ul style={{ marginTop: 8, maxHeight: 140, overflowY: 'auto', paddingLeft: 18, fontSize: 13 }}>
+                  {completeFiles.map((file, index) => (
+                    <li key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span>
+                        {file.name}
+                        <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 6px', borderRadius: 10, background: '#edf2f7', color: '#4a5568' }}>
+                          {getFileTypeLabel(file.name)}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompleteFile(index)}
+                        style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 12 }}
+                      >
+                        Xóa
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.confirmDialogActions}>
+              <button
+                className={styles.confirmDialogCancel}
+                onClick={closeCompletePopup}
+                disabled={submittingComplete}
+              >
+                Hủy
+              </button>
+              <button
+                className={styles.confirmDialogConfirm}
+                onClick={handleSubmitComplete}
+                disabled={submittingComplete}
+              >
+                {submittingComplete ? 'Đang nộp...' : 'Nộp file review'}
               </button>
             </div>
           </div>

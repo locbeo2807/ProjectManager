@@ -11,7 +11,7 @@ import styles from './Chats.module.css';
 const ChatsContent = () => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const { conversations, setCurrentConversation, currentConversation } = useChat();
+  const { conversations, setConversations, setCurrentConversation, currentConversation } = useChat();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -33,6 +33,12 @@ const ChatsContent = () => {
     setCurrentConversation(conv);
     // Đóng sidebar sau khi chọn conversation trên mobile
     setSidebarOpen(false);
+    // Cập nhật unreadCount về 0 ngay lập tức để badge biến mất
+    setConversations(prevConversations =>
+      prevConversations.map(c =>
+        c._id === conv._id ? { ...c, unreadCount: 0 } : c
+      )
+    );
   };
 
   // Toggle sidebar trên mobile
@@ -95,4 +101,4 @@ const Chats = () => {
   );
 };
 
-export default Chats; 
+export default Chats;

@@ -1,40 +1,121 @@
 .editTaskPopup {
   min-width: 600px;
+  animation: slideInDialog 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInDialog {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .dialogTitle {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 20px 28px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f0ff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.dialogTitle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(102, 126, 234, 0.05) 50%, transparent 70%);
+  animation: shimmer 4s ease-in-out infinite;
 }
 
 .titleContent {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .dialogContent {
-  padding: 24px;
+  padding: 28px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
 }
 
 .formGrid {
   display: grid;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
 .formSection {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  animation: slideInSection 0.5s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.formSection:nth-child(1) { animation-delay: 0.1s; }
+.formSection:nth-child(2) { animation-delay: 0.2s; }
+.formSection:nth-child(3) { animation-delay: 0.3s; }
+.formSection:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes slideInSection {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.formSection:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: #667eea;
 }
 
 .sectionTitle {
-  font-weight: 600;
-  color: #1976d2;
-  margin-bottom: 8px;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 12px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.sectionTitle::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 2px;
+}
+
+.sectionTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, #e2e8f0, transparent);
+  margin-left: 12px;
 }
 
 .priorityChip {
@@ -76,28 +157,109 @@
 }
 
 .dialogActions {
-  padding: 16px 24px;
+  padding: 20px 28px;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+  background: #f8f9fa;
+  border-top: 1px solid #e2e8f0;
+  animation: slideInActions 0.6s ease-out 0.5s forwards;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@keyframes slideInActions {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .saveButton {
-  background-color: #1976d2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.saveButton::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.saveButton:hover::before {
+  width: 120%;
+  height: 120%;
 }
 
 .saveButton:hover {
-  background-color: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.saveButton:active {
+  transform: translateY(0);
+  transition: all 0.1s ease;
 }
 
 .cancelButton {
-  border-color: #757575;
-  color: #757575;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #4a5568;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cancelButton::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(74, 85, 104, 0.05);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.cancelButton:hover::before {
+  width: 120%;
+  height: 120%;
 }
 
 .cancelButton:hover {
-  background-color: #f5f5f5;
+  background: #f7fafc;
+  border-color: #cbd5e0;
+  color: #2d3748;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .loadingSpinner {

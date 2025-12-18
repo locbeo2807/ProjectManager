@@ -17,11 +17,27 @@ const AddMemToProjectPopup = ({ open, onClose, onAdd, loading, existingUserIds =
 
   useEffect(() => {
     if (open) {
-      UserService.getAllUsers().then(users => setAllUsers(users)).catch(() => setAllUsers([]));
       setSearch('');
       setSelectedUsers([]);
+      UserService.searchUsers('')
+        .then(users => setAllUsers(users))
+        .catch(() => setAllUsers([]));
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const q = search.trim();
+    if (q.length < 2) return;
+
+    const timeoutId = setTimeout(() => {
+      UserService.searchUsers(q)
+        .then(users => setAllUsers(users))
+        .catch(() => setAllUsers([]));
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [search, open]);
 
   const filteredUsers = allUsers.filter(u =>
     ((u.name && u.name.toLowerCase().includes(search.toLowerCase())) ||

@@ -126,7 +126,7 @@ exports.getRisksByProject = async (req, res, next) => {
       .populate('task', 'name taskId status')
       .populate('module', 'name moduleId')
       .populate('sprint', 'name')
-      .sort({ priority: -1, createdAt: -1 }); // Critical risks first
+      .sort({ priority: -1, createdAt: -1 }); // Rủi ro quan trọng trước
 
     res.json(risks);
   } catch (error) {
@@ -196,7 +196,7 @@ exports.updateRisk = async (req, res, next) => {
 
     // Gửi thông báo cho các thay đổi trạng thái
     if (oldStatus !== risk.status && risk.status === 'Closed') {
-      // Notify creator when risk is closed
+      // Thông báo cho người tạo khi rủi ro được đóng
       const notification = await Notification.create({
         user: risk.createdBy,
         type: 'risk_closed',

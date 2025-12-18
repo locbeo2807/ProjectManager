@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css'; 
+import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../../api/axios';
+import DatePicker from '../common/DatePicker';
 import styles from './EditSprintPopup.module.css';
 
 function formatFileName(fileName) {
@@ -99,7 +100,7 @@ export default function EditSprintPopup({ open, sprint, onClose, onUpdated, erro
     }
     setLoading(true);
     try {
-      // Create FormData with all data
+      // Tạo FormData với tất cả dữ liệu
       const formData = new FormData();
       formData.append('name', form.name);
       formData.append('goal', form.goal);
@@ -108,14 +109,14 @@ export default function EditSprintPopup({ open, sprint, onClose, onUpdated, erro
       formData.append('repoLink', form.repoLink);
       formData.append('gitBranch', form.gitBranch);
       
-      // Add keepFiles (existing files to keep)
+      // Thêm keepFiles (files hiện tại để giữ)
       const keepFileIds = existingFiles.map(f => f.publicId);
       formData.append('keepFiles', JSON.stringify(keepFileIds));
       
-      // Add new files
+      // Thêm files mới
       newFiles.forEach(f => formData.append('docs', f));
       
-      // Update sprint with all data in one request
+      // Update sprint với tất cả dữ liệu trong một request
       await axiosInstance.put(`/sprints/${sprint._id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -176,23 +177,19 @@ export default function EditSprintPopup({ open, sprint, onClose, onUpdated, erro
               <div className={styles.dateRow}>
                 <div className={styles.dateCol + ' ' + styles.relative}>
                   <label className={styles.label}>Ngày bắt đầu <span className={styles.requiredMark}>*</span></label>
-                  <input
-                    type="date"
-                    className={`${styles.input} ${errors.startDate ? styles.inputError : ''}`}
-                    name="startDate"
+                  <DatePicker
                     value={form.startDate}
-                    onChange={handleChange}
+                    onChange={(value) => setForm(prev => ({ ...prev, startDate: value }))}
+                    placeholder="Chọn ngày bắt đầu"
                   />
                   {errors.startDate && <div className={styles.error}>{errors.startDate}</div>}
                 </div>
                 <div className={styles.dateCol + ' ' + styles.relative}>
                   <label className={styles.label}>Ngày kết thúc <span className={styles.requiredMark}>*</span></label>
-                  <input
-                    type="date"
-                    className={`${styles.input} ${errors.endDate ? styles.inputError : ''}`}
-                    name="endDate"
+                  <DatePicker
                     value={form.endDate}
-                    onChange={handleChange}
+                    onChange={(value) => setForm(prev => ({ ...prev, endDate: value }))}
+                    placeholder="Chọn ngày kết thúc"
                   />
                   {errors.endDate && <div className={styles.error}>{errors.endDate}</div>}
                 </div>
@@ -300,4 +297,4 @@ export default function EditSprintPopup({ open, sprint, onClose, onUpdated, erro
       </form>
     </div>
   );
-} 
+}

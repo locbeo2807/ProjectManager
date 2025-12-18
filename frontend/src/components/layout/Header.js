@@ -28,7 +28,6 @@ import UserDetailDialog from '../popups/UserDetailDialog';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import axiosInstance from '../../api/axios';
-import notificationService from '../../services/notificationService';
 import { motion } from 'framer-motion';
 dayjs.extend(relativeTime);
 
@@ -52,40 +51,17 @@ const Header = ({ handleDrawerToggle, menuItems, mobileOpen }) => {
     }
     prevUnread.current = unreadCount;
   }, [unreadCount]);
-  const [previewNotifications, setPreviewNotifications] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
 
-  // Sync preview notifications with context; fallback to server fetch when empty
+  // Đồng bộ notifications với context và đảm bảo mới nhất trước tiên
   useEffect(() => {
-    // Keep preview in sync with context notifications and ensure newest-first
+    // Giữ notifications đồng bộ với context và đảm bảo mới nhất trước tiên
     if (notifications && notifications.length > 0) {
-      const sorted = [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setPreviewNotifications(sorted.slice(0, 5));
+      // Không cần đồng bộ vì chúng ta sử dụng notifications trực tiếp từ context
     }
   }, [notifications]);
-
-  useEffect(() => {
-    if (!notifications || notifications.length === 0) {
-      let cancelled = false;
-      (async () => {
-        try {
-          const res = await notificationService.getNotificationsPaginated(1, 5);
-          let items = [];
-          if (!res) items = [];
-          else if (Array.isArray(res)) items = res;
-          else if (Array.isArray(res.data)) items = res.data;
-          else if (Array.isArray(res.items)) items = res.items;
-          else items = res.data || res;
-          if (!cancelled) setPreviewNotifications((items || []).slice(0, 5));
-        } catch (err) {
-          console.error('Failed to load preview notifications', err);
-        }
-      })();
-      return () => { cancelled = true; };
-    }
-  }, []);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -97,10 +73,7 @@ const Header = ({ handleDrawerToggle, menuItems, mobileOpen }) => {
 
   const handleNotificationMenu = (event) => {
     setNotificationAnchorEl(event.currentTarget);
-    // Khi người dùng mở menu thông báo, tự động đánh dấu tất cả là đã đọc
-    if (unreadCount > 0) {
-      markAllAsRead();
-    }
+    // Không tự động đánh dấu tất cả là đã đọc khi mở menu
   };
 
   const handleNotificationClose = () => {
@@ -146,14 +119,18 @@ const Header = ({ handleDrawerToggle, menuItems, mobileOpen }) => {
           'task_reviewed'
         ].includes(notification.type) && notification.refId
       ) {
-        // Gọi API backend để lấy releaseId và sprintId
+        // Gọi API backend để lấy moduleId và sprintId cho task
         const accessToken = localStorage.getItem('accessToken');
         const response = await axiosInstance.get(`/tasks/navigation-info/${notification.refId}`, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
-        const { releaseId, sprintId } = response.data;
-        if (releaseId && sprintId) {
-          navigate(`/releases/${releaseId}?tab=${sprintId}`);
+        const { moduleId, sprintId } = response.data;
+
+        // Ưu tiên điều hướng tới sprint detail nếu có
+        if (sprintId) {
+          navigate(`/sprints/${sprintId}`);
+        } else if (moduleId) {
+          navigate(`/modules/${moduleId}`);
         } else {
           navigate('/dashboard');
         }
@@ -216,21 +193,16 @@ const Header = ({ handleDrawerToggle, menuItems, mobileOpen }) => {
     >
       <AppBar
         position="fixed"
-        elevation={0}
         sx={{
           width: { lg: `calc(100% - ${drawerWidth}px)` },
           ml: { lg: `${drawerWidth}px` },
-          background: 'rgba(255,255,255,0.98)',
+          background: '#ffffff',
           color: '#1e293b',
-          boxShadow: '0 4px 24px 0 rgba(31, 38, 135, 0.07)',
-          borderBottomLeftRadius: 0,
-          borderBottomRightRadius: 0,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
           zIndex: mobileOpen ? 1100 : 1201,
-          backdropFilter: 'blur(8px)',
-          border: 'none',
         }}
       >
-      <Toolbar sx={{ minHeight: 64, px: { xs: 2, sm: 3, md: 4 } }}>
+      <Toolbar sx={{ minHeight: 56, px: { xs: 2, sm: 3, md: 4 } }}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
@@ -489,4 +461,4 @@ const Header = ({ handleDrawerToggle, menuItems, mobileOpen }) => {
   );
 };
 
-export default Header; 
+export default Header;

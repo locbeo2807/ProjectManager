@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import axiosInstance from '../../api/axios';
+import DatePicker from '../common/DatePicker';
 
 function formatFileName(fileName) {
   if (!fileName) return '';
@@ -352,27 +353,27 @@ const NewSprintPopup = ({ isOpen, onClose, moduleId, onSprintCreated }) => {
               <div style={{ ...styles.dateRow, position: 'relative' }}>
                 <div style={{...styles.dateCol, position: 'relative'}}>
                   <label style={styles.label}>Ngày bắt đầu <span style={styles.requiredMark}>*</span></label>
-                  <input
-                    type="date"
-                    style={{ ...styles.input, borderColor: errors.startDate ? '#dc3545' : '#ccc' }}
+                  <DatePicker
                     value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
+                    onChange={(value) => {
+                      setStartDate(value);
                       if (errors.startDate) setErrors(prev => ({ ...prev, startDate: '' }));
                     }}
+                    placeholder="Chọn ngày bắt đầu"
+                    style={{}} 
                   />
                   {errors.startDate && <div style={styles.errorTextInline}>{errors.startDate}</div>}
                 </div>
                 <div style={{...styles.dateCol, position: 'relative'}}>
                   <label style={styles.label}>Ngày kết thúc <span style={styles.requiredMark}>*</span></label>
-                  <input
-                    type="date"
-                    style={{ ...styles.input, borderColor: errors.endDate ? '#dc3545' : '#ccc' }}
+                  <DatePicker
                     value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
+                    onChange={(value) => {
+                      setEndDate(value);
                       if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
                     }}
+                    placeholder="Chọn ngày kết thúc"
+                    style={{}}
                   />
                   {errors.endDate && <div style={styles.errorTextInline}>{errors.endDate}</div>}
                 </div>

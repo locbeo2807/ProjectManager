@@ -23,11 +23,9 @@ import {
   Assignment,
   Flag
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useNotify } from '../../hooks/useNotify';
 import TaskService from '../../services/taskService';
+import DatePicker from '../common/DatePicker';
 import styles from './EditTaskPopup.module.css';
 
 const EditTaskPopup = ({ open, onClose, task, onUpdate, sprint, project }) => {
@@ -78,7 +76,7 @@ const EditTaskPopup = ({ open, onClose, task, onUpdate, sprint, project }) => {
 
   const fetchAvailableUsers = async () => {
     try {
-      // Mock data for now - replace with actual API call
+      // Mock data for now - thay thế với API call thực tế
       const mockUsers = [
         { _id: '1', name: 'Nguyễn Văn A', email: 'a@example.com', role: 'Developer' },
         { _id: '2', name: 'Trần Thị B', email: 'b@example.com', role: 'Developer' },
@@ -382,14 +380,16 @@ const EditTaskPopup = ({ open, onClose, task, onUpdate, sprint, project }) => {
             </Grid>
 
             <Grid item xs={12} md={3}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 400, color: 'rgba(0, 0, 0, 0.6)', marginBottom: 4 }}>
+                  Deadline
+                </label>
                 <DatePicker
-                  label="Deadline"
-                  value={formData.deadline}
-                  onChange={(newValue) => handleChange('deadline', newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth className={styles.textField} />}
+                  value={formData.deadline ? formData.deadline.toISOString().split('T')[0] : ''}
+                  onChange={(value) => handleChange('deadline', value ? new Date(value) : null)}
+                  placeholder="Chọn deadline"
                 />
-              </LocalizationProvider>
+              </div>
             </Grid>
 
             {/* Acceptance Criteria */}

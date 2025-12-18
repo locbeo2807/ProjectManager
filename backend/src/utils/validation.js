@@ -347,12 +347,19 @@ const createTaskSchema = Joi.object({
   taskId: Joi.string().required(),
   name: Joi.string().required(),
   goal: Joi.string().optional().allow(''),
+  taskType: Joi.string().valid('Feature', 'Bug', 'Improvement', 'Research/Spike').optional(),
+  priority: Joi.string().valid('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp').optional(),
   sprint: objectId.required(),
-  assignee: objectId.required(),
-  reviewer: objectId.required(),
+  assignees: Joi.array().items(objectId).min(1).required(),
+  reviewers: Joi.array().items(objectId).min(1).required(),
   startDate: Joi.date().optional().allow(null),
-  taskEndDate: Joi.date().optional().allow(null)
-  // Note: `createdBy` is intentionally not required because server uses `req.user` as the creator
+  taskEndDate: Joi.date().optional().allow(null),
+  deadline: Joi.date().optional().allow(null),
+  description: Joi.string().optional().allow(''),
+  acceptanceCriteria: Joi.array().items(Joi.string()).optional(),
+  storyPoints: Joi.number().min(0).optional(),
+  estimatedHours: Joi.number().min(0).optional(),
+  createdBy: objectId.optional() // Server uses req.user._id as creator
 });
 
 const createUserSchema = Joi.object({

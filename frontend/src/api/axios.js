@@ -4,10 +4,14 @@ const axiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
 });
 
+// Sử dụng localStorage mặc định
+const getStorage = () => localStorage;
+
 // Interceptor cho request
 axiosInstance.interceptors.request.use(
   (config) => {
-    const accessToken = localStorage.getItem('accessToken');
+    const storage = getStorage();
+    const accessToken = storage.getItem('accessToken');
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -29,6 +33,7 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const storage = getStorage();
 
     // Kiểm tra nếu lỗi là 401, không phải request retry, và không phải endpoint login/refresh-token
     if (
@@ -38,7 +43,7 @@ axiosInstance.interceptors.response.use(
       !originalRequest.url.includes('/auth/refresh-token')
     ) {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = storage.getItem('refreshToken');
 
       if (refreshToken) {
         try {
@@ -48,8 +53,8 @@ axiosInstance.interceptors.response.use(
           
           const { accessToken } = res.data;
           
-          // Cập nhật localStorage với accessToken mới
-          localStorage.setItem('accessToken', accessToken);
+          // Cập nhật storage với accessToken mới
+          storage.setItem('accessToken', accessToken);
           
           // Dispatch event tùy chỉnh để thông báo app rằng token đã được refresh
           window.dispatchEvent(new Event('tokenRefreshed'));
@@ -61,9 +66,9 @@ axiosInstance.interceptors.response.use(
           return axiosInstance(originalRequest);
         } catch (refreshError) {
           // Nếu refresh token thất bại, xóa tất cả dữ liệu auth và redirect về login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
+          storage.removeItem('accessToken');
+          storage.removeItem('refreshToken');
+          storage.removeItem('user');
           if (window.location.pathname !== '/login') {
             window.location.href = '/login';
           }
@@ -71,9 +76,9 @@ axiosInstance.interceptors.response.use(
         }
       } else {
         // Nếu không có refresh token, xóa tất cả dữ liệu auth và redirect về login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        storage.removeItem('accessToken');
+        storage.removeItem('refreshToken');
+        storage.removeItem('user');
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
@@ -86,4 +91,4 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export default axiosInstance; 
+export default axiosInstance;

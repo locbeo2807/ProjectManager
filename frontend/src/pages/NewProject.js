@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import DatePicker from '../components/common/DatePicker';
 import styles from './NewProject.module.css';
 
 function generateProjectId() {
@@ -27,7 +28,6 @@ const NewProject = () => {
     projectManager: ''
   });
   const [files, setFiles] = useState([]);
-  const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -46,7 +46,7 @@ const NewProject = () => {
     } catch {}
   }
 
-  // Debounced server-side search for users by name or email
+  // Debounced server-side tìm kiếm user theo tên hoặc email
   useEffect(() => {
     if (!searchTerm || searchTerm.trim().length < 2) {
       setFilteredUsers([]);
@@ -60,7 +60,7 @@ const NewProject = () => {
       try {
         const res = await axiosInstance.get('/users/search', { params: { q: searchTerm } });
         if (cancelled) return;
-        // Keep only eligible roles
+        // Chỉ giữ lại các vai trò phù hợp
         const eligible = (res.data || []).filter(user => ['PM', 'BA', 'Scrum Master', 'Product Owner', 'TestPM'].includes(user.role));
         setFilteredUsers(eligible);
       } catch (err) {
@@ -320,23 +320,18 @@ const NewProject = () => {
               </div>
               <div className={styles.formGroup}>
                 <label htmlFor="startDate" className={styles.label}>Ngày bắt đầu <span className={styles.required}>*</span></label>
-                <input
-                  type="date"
-                  id="startDate"
+                <DatePicker
                   value={formData.startDate}
-                  onChange={handleInputChange}
-                  required
-                  className={styles.input}
+                  onChange={(value) => setFormData(prev => ({ ...prev, startDate: value }))}
+                  placeholder="Chọn ngày bắt đầu"
                 />
               </div>
               <div className={styles.formGroup}>
                 <label htmlFor="endDate" className={styles.label}>Ngày kết thúc</label>
-                <input
-                  type="date"
-                  id="endDate"
+                <DatePicker
                   value={formData.endDate}
-                  onChange={handleInputChange}
-                  className={styles.input}
+                  onChange={(value) => setFormData(prev => ({ ...prev, endDate: value }))}
+                  placeholder="Chọn ngày kết thúc"
                 />
               </div>
             </div>

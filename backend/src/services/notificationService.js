@@ -32,13 +32,38 @@ const NOTIFICATION_RULES = {
   },
   'project_member_added': {
     specific: true, // Notify added member
-    roles: ['PM', 'BA'], // Also notify PM and BA
-    message: (data) => `Bạn đã được thêm vào dự án "${data.projectName}" với vai trò ${data.memberRole} bởi ${data.addedByName}`
+    roles: ['PM'], // Also notify PM (không gửi thêm cho toàn bộ BA để tránh trùng cho chính BA được thêm)
+
+    message: (data) => {
+      // Nếu có specificUsers (case gửi riêng cho member mới được thêm)
+      if (Array.isArray(data.specificUsers) && data.specificUsers.length > 0) {
+        return `Bạn đã được thêm vào dự án "${data.projectName}" với vai trò ${data.memberRole} bởi ${data.addedByName}`;
+      }
+
+      // Còn lại là thông báo cho PM/BA khi có thành viên mới được thêm
+      if (data.memberName) {
+        return `Thành viên ${data.memberName} (vai trò ${data.memberRole || 'member'}) đã được ${data.addedByName} thêm vào dự án "${data.projectName}"`;
+      }
+
+      return `Có thành viên mới được thêm vào dự án "${data.projectName}" bởi ${data.addedByName}`;
+    }
   },
   'project_member_removed': {
     specific: true, // Notify removed member
     roles: ['PM', 'BA'], // Also notify PM and BA
-    message: (data) => `Bạn đã được xóa khỏi dự án "${data.projectName}" bởi ${data.removedByName}`
+    message: (data) => {
+      // Nếu có specificUsers => gửi riêng cho member bị xóa
+      if (Array.isArray(data.specificUsers) && data.specificUsers.length > 0) {
+        return `Bạn đã được xóa khỏi dự án "${data.projectName}" bởi ${data.removedByName}`;
+      }
+
+      // Còn lại: thông báo cho PM/BA
+      if (data.memberName) {
+        return `Thành viên ${data.memberName} đã được ${data.removedByName} xóa khỏi dự án "${data.projectName}"`;
+      }
+
+      return `Có thành viên đã bị xóa khỏi dự án "${data.projectName}" bởi ${data.removedByName}`;
+    }
   },
   'project_deadline_warning': {
     roles: ['PM', 'BA', 'Product Owner'], // Notify leadership for deadline warnings
@@ -127,12 +152,36 @@ const NOTIFICATION_RULES = {
   'sprint_member_added': {
     specific: true, // Notify added member
     roles: ['BA', 'Scrum Master'], // Also notify BA and SM
-    message: (data) => `Bạn đã được thêm vào sprint "${data.sprintName}" bởi ${data.addedByName}`
+    message: (data) => {
+      if (Array.isArray(data.specificUsers) && data.specificUsers.length > 0) {
+        // Gửi riêng cho member mới
+        return `Bạn đã được thêm vào sprint "${data.sprintName}" bởi ${data.addedByName}`;
+      }
+
+      if (data.memberName) {
+        // Thông báo cho BA/Scrum Master
+        return `Thành viên ${data.memberName} đã được ${data.addedByName} thêm vào sprint "${data.sprintName}"`;
+      }
+
+      return `Có thành viên mới được thêm vào sprint "${data.sprintName}" bởi ${data.addedByName}`;
+    }
   },
   'sprint_member_removed': {
     specific: true, // Notify removed member
     roles: ['BA', 'Scrum Master'], // Also notify BA and SM
-    message: (data) => `Bạn đã được xóa khỏi sprint "${data.sprintName}" bởi ${data.removedByName}`
+    message: (data) => {
+      if (Array.isArray(data.specificUsers) && data.specificUsers.length > 0) {
+        // Gửi riêng cho member bị xóa
+        return `Bạn đã được xóa khỏi sprint "${data.sprintName}" bởi ${data.removedByName}`;
+      }
+
+      if (data.memberName) {
+        // Thông báo cho BA/Scrum Master
+        return `Thành viên ${data.memberName} đã được ${data.removedByName} xóa khỏi sprint "${data.sprintName}"`;
+      }
+
+      return `Có thành viên đã bị xóa khỏi sprint "${data.sprintName}" bởi ${data.removedByName}`;
+    }
   },
   'sprint_deadline_warning': {
     roles: ['PM', 'BA', 'Scrum Master', 'Product Owner'], // Notify leadership
@@ -149,14 +198,13 @@ const NOTIFICATION_RULES = {
 
   // Task Events
   'task_created': {
-    roles: ['Developer', 'BA', 'QA Tester', 'Scrum Master'], // Notify development team
+    roles: ['BA', 'QA Tester', 'Scrum Master'], // Notify BA, QA, SM – không broadcast tới Developer
     specific: true, // Also notify project manager
-    message: (data) => `Task mới "${data.taskName}" (${data.storyPoints} SP) đã được tạo trong sprint "${data.sprintName}"`
+    message: (data) => `Task mới "${data.taskName}" (${data.storyPoints} SP) đã được tạo trong sprint "${data.sprintName}" của dự án "${data.projectName}".`
   },
   'task_assigned': {
-    specific: true, // Notify specific assignee
-    roles: ['BA', 'Scrum Master'], // Also notify BA and SM
-    message: (data) => `Task "${data.taskName}" đã được giao cho bạn bởi ${data.assignerName}`
+    specific: true, // Notify specific assignee only (and optional projectManager via context)
+    message: (data) => `Bạn được giao task "${data.taskName}" (ID: ${data.taskId}) trong sprint "${data.sprintName}" của dự án "${data.projectName}". Người giao: ${data.assignerName}.`
   },
   'task_started': {
     roles: ['BA', 'Scrum Master'], // Notify BA and SM when work begins
@@ -166,21 +214,21 @@ const NOTIFICATION_RULES = {
   'task_completed': {
     roles: ['BA', 'PM', 'Scrum Master'], // Notify BA, PM, and SM when task is done
     specific: true, // Also notify reviewer and project manager
-    message: (data) => `Task "${data.taskName}" đã hoàn thành bởi ${data.assigneeName} và chờ review`
+    message: (data) => `Task "${data.taskName}" do ${data.assigneeName} thực hiện đã nộp file hoàn thành và đang chờ review. Sprint: "${data.sprintName}", dự án: "${data.projectName}".`
   },
   'task_review_assigned': {
     specific: true, // Notify specific reviewer
-    message: (data) => `Task "${data.taskName}" cần bạn review trong vòng 24 giờ`
+    message: (data) => `Bạn được giao review task "${data.taskName}" (ID: ${data.taskId}) trong sprint "${data.sprintName}" của dự án "${data.projectName}". Vui lòng xem file hoàn thành và gửi đánh giá.`
   },
   'task_reviewed_passed': {
     specific: true, // Notify assignee
     roles: ['BA', 'Scrum Master'], // Also notify BA and SM
-    message: (data) => `Task "${data.taskName}" đã được chấp nhận - sẵn sàng cho QA`
+    message: (data) => `Task "${data.taskName}" bạn thực hiện đã được review ĐẠT bởi ${data.reviewerName}.${data.comment ? ' Nhận xét: ' + data.comment : ''}`
   },
   'task_reviewed_failed': {
     specific: true, // Notify assignee
     roles: ['BA', 'Scrum Master'], // Also notify BA and SM
-    message: (data) => `Task "${data.taskName}" cần sửa đổi theo feedback của reviewer`
+    message: (data) => `Task "${data.taskName}" bạn thực hiện KHÔNG ĐẠT review của ${data.reviewerName}.${data.comment ? ' Lý do: ' + data.comment : ' Vui lòng xem lại yêu cầu và sửa theo góp ý.'}`
   },
   'task_qa_passed': {
     specific: true, // Notify assignee

@@ -80,7 +80,7 @@ const Register = () => {
   const [isOtpLoading, setIsOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
 
-  // Password visibility states
+  // Trạng thái hiển thị password
   const [showPassword, setShowPassword] = useState(false);
 
   // Validation states - chỉ hiện lỗi khi field bị blur hoặc submit
@@ -89,7 +89,7 @@ const Register = () => {
   });
   const [showValidation, setShowValidation] = useState(false);
 
-  // Validation functions
+  // Hàm validation
   const validatePassword = (password) => {
     const errors = [];
     if (password.length < 8) errors.push("Mật khẩu phải có ít nhất 8 ký tự");
@@ -130,7 +130,7 @@ const Register = () => {
     setInfo("");
     try {
       const res = await register(formData);
-      // Tất cả user đều có MFA enabled, nên luôn chuyển sang form OTP
+      // Always show OTP form for registration
       setUserId(res.userId);
       setInfo(res.message || "Vui lòng kiểm tra email để lấy mã OTP xác thực.");
       setStep("otp");

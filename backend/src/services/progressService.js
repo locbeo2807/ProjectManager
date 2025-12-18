@@ -198,6 +198,20 @@ async function notifyProjectCompletion(project) {
       });
     }
 
+    // Thông báo riêng cho PM phụ trách dự án (nếu có)
+    if (project.projectManager) {
+      const pmMessage = `Dự án "${project.name}" do bạn phụ trách đã hoàn thành thành công! 🎉`;
+
+      const pmNotification = await Notification.create({
+        user: project.projectManager,
+        type: 'project_completed_pm',
+        refId: project._id.toString(),
+        message: pmMessage
+      });
+
+      socketManager.sendNotification(project.projectManager, pmNotification);
+    }
+
   } catch (error) {
     console.error('Error sending project completion notifications:', error);
   }

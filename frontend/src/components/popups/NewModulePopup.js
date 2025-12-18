@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import DatePicker from '../common/DatePicker';
 
 function formatFileName(fileName) {
   if (!fileName) return '';
@@ -151,18 +152,22 @@ const NewModulePopup = ({ open, onClose, members, currentUser, onSubmit, modules
               </div>
               <div style={{...styles.fieldGroup, position: 'relative'}}>
                 <label style={styles.label}>Ngày bắt đầu {requiredMark}</label>
-                <input style={{
-                  ...styles.input,
-                  borderColor: errors.startDate ? '#dc3545' : '#ccc',
-                }} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <DatePicker
+                  value={startDate}
+                  onChange={(value) => setStartDate(value)}
+                  placeholder="Chọn ngày bắt đầu"
+                  style={{}}
+                />
                 {errors.startDate && <div style={styles.errorTextInline}>{errors.startDate}</div>}
               </div>
               <div style={{...styles.fieldGroup, position: 'relative'}}>
                 <label style={styles.label}>Ngày kết thúc {requiredMark}</label>
-                <input style={{
-                  ...styles.input,
-                  borderColor: errors.endDate ? '#dc3545' : '#ccc',
-                }} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                <DatePicker
+                  value={endDate}
+                  onChange={(value) => setEndDate(value)}
+                  placeholder="Chọn ngày kết thúc"
+                  style={{}}
+                />
                 {errors.endDate && <div style={styles.errorTextInline}>{errors.endDate}</div>}
               </div>
             </div>

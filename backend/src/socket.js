@@ -5,37 +5,162 @@ const User = require('./models/User');
 const Conversation = require('./models/Conversation');
 const Message = require('./models/Message');
 
+// Rate limiting configuration
+const rateLimitWindowMs = 15 * 60 * 1000; // 15 minutes
+const maxRequestsPerWindow = 1000; // Increased limit for each IP to 1000 requests per window
+
+// In-memory store for rate limiting
+const rateLimitStore = new Map();
+
+// Clean up old rate limit entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (value.expiresAt < now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60 * 1000); // Clean up every minute
+
 // Lưu userId <-> Set(socketId) mapping để hỗ trợ nhiều thiết bị
 const onlineUsers = new Map();
 // Guard set để tránh deliver pending notifications nhiều lần cùng lúc cho cùng 1 user
 const deliveringUsers = new Set();
 
+
 const socketManager = {
   io: null,
   
   setupSocket(server) {
+    // Đồng bộ cấu hình CORS với app.js
+    const corsOrigins = process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(origin => origin.trim())
+      : ['http://localhost:3000'];
+      
     this.io = new Server(server, {
       cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
+        origin: corsOrigins,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true
       },
+      // Enable connection state recovery
+      connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        skipMiddlewares: true,
+      },
+      // Configure ping/pong timeouts
+      pingTimeout: 30000,  // 30 seconds
+      pingInterval: 10000, // 10 seconds
+      // Maximum number of events per second per socket
+      maxHttpBufferSize: 1e8, // 100MB
+      // Rate limiting at the connection level
+      connectTimeout: 45000, // 45 seconds
+      // Limit number of connections per IP
+      maxConnections: 100,
+      // Enable HTTP long-polling as fallback
+      transports: ['websocket', 'polling'],
     });
 
+    // Middleware to log connection attempts and apply rate limiting
     this.io.use((socket, next) => {
-      const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error('Authentication error'));
+      const ip = socket.handshake.address;
+      console.log(`[Socket] New connection from ${ip}`);
+      
+      // Simple IP-based rate limiting
+      const now = Date.now();
+      const rateKey = `rate_limit:${ip}`;
+      const rateData = rateLimitStore.get(rateKey) || { 
+        count: 0, 
+        firstRequestAt: now, 
+        expiresAt: now + rateLimitWindowMs 
+      };
+      
+      // Check rate limit
+      if (rateData.count >= maxRequestsPerWindow) {
+        const retryAfter = Math.ceil((rateData.expiresAt - now) / 1000);
+        console.log(`[Socket] Rate limit exceeded for IP: ${ip}`);
+        socket.emit('rate_limit_exceeded', {
+          message: 'Too many requests, please try again later',
+          retryAfter,
+          resetTime: new Date(rateData.expiresAt).toISOString()
+        });
+        return next(new Error('Rate limit exceeded'));
+      }
+      
+      // Update rate limit
+      rateData.count++;
+      rateLimitStore.set(rateKey, rateData);
+      
+      // Add rate limit info to socket for reference
+      socket.rateLimit = {
+        limit: maxRequestsPerWindow,
+        remaining: Math.max(0, maxRequestsPerWindow - rateData.count),
+        reset: Math.ceil(rateData.expiresAt / 1000)
+      };
+      
+      // Continue with authentication
       try {
+        const token = socket.handshake.auth?.token;
+        if (!token) {
+          console.log('[Socket] No token provided');
+          return next(new Error('Authentication error: No token provided'));
+        }
+        
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded) {
+          console.log('[Socket] Invalid token');
+          return next(new Error('Authentication error: Invalid token'));
+        }
+        
         socket.user = decoded;
         next();
       } catch (err) {
+        console.error('[Socket] Auth error:', err.message);
         next(new Error('Authentication error'));
       }
     });
 
+    // Track active connections
+    const activeConnections = new Map();
+    
     this.io.on('connection', (socket) => {
-      // Đảm bảo userId luôn là string
+      if (!socket.user || !socket.user._id) {
+        console.log('[Socket] Unauthenticated connection, disconnecting');
+        return socket.disconnect(true);
+      }
+      
+      // Ensure userId is always a string
       const userId = socket.user._id.toString();
+      
+      // Track this connection
+      const userSockets = activeConnections.get(userId) || new Set();
+      userSockets.add(socket.id);
+      activeConnections.set(userId, userSockets);
+      
+      // Log connection
+      console.log(`[Socket] User ${userId} connected (${userSockets.size} connections)`);
+      
+      // Handle disconnection
+      socket.on('disconnect', (reason) => {
+        console.log(`[Socket] User ${userId} disconnected: ${reason}`);
+        
+        // Clean up connection tracking
+        const userSockets = activeConnections.get(userId);
+        if (userSockets) {
+          userSockets.delete(socket.id);
+          if (userSockets.size === 0) {
+            activeConnections.delete(userId);
+          }
+        }
+        
+        // Leave all rooms
+        Object.keys(socket.rooms).forEach(room => {
+          if (room !== socket.id) { // Don't leave the default room (socket's own room)
+            socket.leave(room);
+          }
+        });
+      });
 
       // Lưu mapping userId -> Set(socketId)
       const existing = onlineUsers.get(userId);
@@ -96,7 +221,16 @@ const socketManager = {
       socket.on('leaveProjectRoom', (projectId) => {
         socket.leave(projectId);
       });
-      
+
+      // Xử lý join/leave module room
+      socket.on('joinModuleRoom', (moduleId) => {
+        socket.join(`module:${moduleId}`);
+      });
+
+      socket.on('leaveModuleRoom', (moduleId) => {
+        socket.leave(`module:${moduleId}`);
+      });
+
       // Xử lý join/leave sprint room
       socket.on('joinSprintRoom', (sprintId) => {
         socket.join(`sprint:${sprintId}`);
@@ -266,4 +400,4 @@ const socketManager = {
   },
 };
 
-module.exports = socketManager; 
+module.exports = socketManager;

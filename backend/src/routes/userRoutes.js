@@ -16,8 +16,8 @@ router.put('/:id/avatar', authenticate, upload.single('avatar'), userController.
 router.post('/', authenticate, authorize(['PM']), validate(createUserSchema), userController.createUser);
 
 // GET /api/users - Get all users
-// Keep full list restricted to PM
-router.get('/', authenticate, authorize(['PM']), userController.getAllUsers);
+// Cho phép PM và BA xem danh sách user để thêm nhân sự vào dự án
+router.get('/', authenticate, authorize(['PM', 'BA']), userController.getAllUsers);
 
 // GET /api/users/search?q=... - Search users by name or email (authenticated users)
 router.get('/search', authenticate, userController.searchUsers);
